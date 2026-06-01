@@ -1,0 +1,65 @@
+% =============================================================
+%  ch11_installation.tex  --  ROS 2 installieren (Schritt für Schritt)
+% =============================================================
+
+\chapter{ROS\,2 installieren -- Schritt für Schritt}
+
+\begin{lstlisting}[style=bash,caption={Locale + ROS\,2-Apt-Quelle (Ubuntu 24.04)}]
+# 1) Locale auf UTF-8
+sudo apt update && sudo apt install -y locales
+sudo locale-gen en_US en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+
+# 2) Universe-Repo + Schluessel + ROS2-Quelle
+sudo apt install -y software-properties-common curl
+sudo add-apt-repository universe
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+  -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) \
+  signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+  http://packages.ros.org/ros2/ubuntu \
+  $(. /etc/os-release && echo $UBUNTU_CODENAME) main" \
+  | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+sudo apt update
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash,caption={ROS\,2 Jazzy + Entwicklungswerkzeuge}]
+# 3) ROS2 Desktop (inkl. RViz2, Demos)
+sudo apt install -y ros-jazzy-desktop
+
+# 4) Build-Werkzeuge
+sudo apt install -y ros-dev-tools \
+  python3-colcon-common-extensions python3-rosdep
+sudo rosdep init && rosdep update
+
+# 5) In jeder Shell verfuegbar machen
+echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc && source ~/.bashrc
+
+# 6) Funktionstest (zwei Terminals)
+ros2 run demo_nodes_cpp talker      # Terminal A
+ros2 run demo_nodes_py listener     # Terminal B
+\end{lstlisting}
+
+\section{Pakete, die du für die Projekte brauchst}
+\begin{longtable}{@{}p{6.2cm}p{8.6cm}@{}}
+\toprule
+\textbf{Paket (apt: \code{ros-jazzy-...})} & \textbf{Zweck} \\
+\midrule
+\code{ros-gz} (Gazebo Harmonic Bridge)      & Simulation $\leftrightarrow$ ROS\,2 \\
+\code{ros2-control}, \code{ros2-controllers}& Hardware-Abstraktion, \code{joint\_trajectory\_controller} \\
+\code{gz-ros2-control}                      & ros2\_control-Plugin für Gazebo \\
+\code{moveit}                               & Bewegungsplanung, IK, Greifen (Projekt~4) \\
+\code{navigation2}, \code{nav2-bringup}     & Autonome Navigation (Projekt~3) \\
+\code{slam-toolbox}                         & SLAM/Kartierung (Projekt~3) \\
+\code{robot-localization}                   & EKF/UKF-Sensorfusion (Odometrie) \\
+\code{image-pipeline}                       & \code{camera\_calibration}, \code{stereo\_image\_proc} \\
+\code{v4l2-camera} bzw.\ \code{usb-cam}     & Treiber für die USB-Stereokamera \\
+\code{vision-opencv} (\code{cv\_bridge})    & OpenCV $\leftrightarrow$ ROS\,2-Bildnachrichten \\
+\code{xacro}, \code{robot-state-publisher}  & URDF/Xacro, TF-Veröffentlichung \\
+\code{rqt}, \code{rqt-graph}, \code{rqt-image-view} & Introspektion/Visualisierung \\
+\bottomrule
+\end{longtable}
+\noindent Installation gebündelt, z.\,B.\
+\code{sudo apt install ros-jazzy-ros-gz ros-jazzy-ros2-control ros-jazzy-moveit \ldots}\
+Für den ESP32 zusätzlich der \textbf{micro-ROS Agent} (separat aus dem
+micro-ROS-Workspace gebaut).

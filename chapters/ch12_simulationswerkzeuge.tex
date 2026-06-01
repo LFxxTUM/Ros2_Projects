@@ -1,0 +1,46 @@
+% =============================================================
+%  ch12_simulationswerkzeuge.tex  --  Simulationswerkzeuge im ROS 2-Ökosystem
+% =============================================================
+
+\chapter{Simulationswerkzeuge im ROS\,2-Ökosystem}
+
+\textbf{Gazebo Classic ist seit Januar 2025 EOL}; ``modernes Gazebo''
+(früher Ignition) ist der Nachfolger:
+\begin{longtable}{@{}p{3.2cm}p{4.4cm}p{7.4cm}@{}}
+\toprule
+\textbf{Werkzeug} & \textbf{Charakter} & \textbf{Eignung} \\
+\midrule
+\textbf{Gazebo Harmonic} & Standard-Simulator für Jazzy, Bridge \code{ros\_gz} & Allrounder: Physik, Sensoren (Kamera, Tiefe, IMU, LiDAR), \code{gz\_ros2\_control}. \textbf{Erste Wahl.} \\
+NVIDIA Isaac Sim         & photorealistisch, GPU & Vision/Pose-Schätzung mit realistischen Bildern; braucht starke GPU; nur LTS-Distros \\
+Webots                   & einfach, didaktisch    & schneller Einstieg, gute ROS\,2-Anbindung \\
+MuJoCo                   & schnelle, präzise Dynamik & kontaktreiche Regelung, RL; weniger Sensor-Realismus \\
+PyBullet                 & leichtgewichtig        & schnelles Prototyping von Kinematik/Dynamik \\
+\bottomrule
+\end{longtable}
+\noindent \textbf{RViz2} ist kein Simulator, sondern Visualisierung -- du nutzt
+es parallel.
+
+\section{Was lässt sich vorab simulieren?}
+Sehr viel -- die meiste \emph{Logik} der vier Projekte ist simulierbar:
+\begin{itemize}
+\item \textbf{Kinematik/Dynamik} des Stepper-Roboters: Gelenkbewegung,
+  Trajektorienabfahrt, Kollisionen, Massen/Trägheiten.
+\item \textbf{Sensoren:} simulierte Stereokamera (gerenderte Bilder -- du kannst
+  deine Merkmalserkennung darauf testen), Tiefenbild, IMU, LiDAR, Odometrie.
+\item \textbf{Tischtennisball:} Projektilflug inkl.\ Gravitation und Aufprall
+  als Starrkörperphysik; dein Kalman-Filter kann auf den simulierten
+  3D-Positionen laufen.
+\item \textbf{Navigation:} Nav2 + simulierte Odometrie/LiDAR in einer Welt.
+\item \textbf{Greifen:} MoveIt\,2-Planung in simulierter Szene mit platzierten
+  Bauteilen.
+\end{itemize}
+
+\begin{infobox}[title=Kannst du die Projekte vollständig in Simulation umsetzen?]
+\textbf{Die Steuerungs-, Planungs- und Wahrnehmungs-Logik: ja.} Du kannst
+Trajektorienregelung, Kalman-Schätzung, Navigation und die Vision-Pipeline
+komplett in Gazebo entwickeln und testen. \textbf{Was die Simulation nicht
+abbildet:} reales Kamerarauschen/Kalibrierfehler, Schrittverluste und
+Resonanzen des realen Steppers, exakte Kontaktdynamik (Ballspin/-absprung sind
+Näherungen), reale Latenzen und Zeitverhalten. Diese Effekte treten erst auf
+der echten Hardware zutage.
+\end{infobox}

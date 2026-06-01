@@ -1,0 +1,118 @@
+% =============================================================
+%  main.tex  --  Root-Dokument: ROS 2-Robotik-Handbuch
+%  Compile:  latexmk -pdf main.tex
+%            pdflatex main && bibtex main && pdflatex main && pdflatex main
+% =============================================================
+
+\documentclass[11pt,a4paper]{report}
+
+% ---------- Preamble (packages, colors, styles, commands) ----------
+\input{preamble}
+
+% ---------- Graphics search path ----------
+\graphicspath{{figures/}}
+
+% ---------- Bibliography style ----------
+\usepackage[backend=bibtex,style=numeric,sorting=none]{biblatex}
+\addbibresource{back/bibliography.bib}
+
+% =============================================================
+\begin{document}
+
+% ---- Front matter ----
+\input{front/titlepage}
+\pagenumbering{roman}
+\setcounter{page}{1}
+
+\input{front/abstract}
+
+\clearpage
+\tableofcontents
+\clearpage
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% =============================================================
+% TEIL I  --  Theoretische Grundlagen
+% =============================================================
+\part{Theoretische Grundlagen}
+
+\include{chapters/ch01_ros2_konzepte}
+\include{chapters/ch02_kalman_ekf}
+\include{chapters/ch03_odometrie}
+\include{chapters/ch04_stereosehen}
+\include{chapters/ch05_kinematik}
+\include{chapters/ch06_schrittmotoren}
+\include{chapters/ch07_zykloidgetriebe}
+
+% =============================================================
+% TEIL II  --  Hardware-Auswahl
+% =============================================================
+\part{Hardware-Auswahl}
+
+\include{chapters/ch08_komponenten}
+\include{chapters/ch09_pcb}
+
+% =============================================================
+% TEIL III  --  Software-Setup: VM, Linux, ROS 2
+% =============================================================
+\part{Software-Setup: VM, Linux, ROS\,2}
+
+\include{chapters/ch10_betriebssystem}
+\include{chapters/ch11_installation}
+
+% =============================================================
+% TEIL IV  --  Simulation und der Weg vom CAD-Modell zur Realität
+% =============================================================
+\part{Simulation und der Weg vom CAD-Modell zur Realität}
+
+\include{chapters/ch12_simulationswerkzeuge}
+\include{chapters/ch13_sim_real_trennung}
+\include{chapters/ch14_cad_urdf}
+
+% =============================================================
+% TEIL V  --  Die vier Projekte: Architektur und rqt_graph
+% =============================================================
+\part{Die vier Projekte: Architektur und \code{rqt\_graph}}
+
+\include{chapters/ch15_projekt1}
+\include{chapters/ch16_projekt2}
+\include{chapters/ch17_projekt3}
+\include{chapters/ch18_projekt4}
+
+% =============================================================
+% TEIL VI  --  Stereokamera in ROS 2 -- Praxis mit Code
+% =============================================================
+\part{Stereokamera in ROS\,2 -- Praxis mit Code}
+
+\include{chapters/ch19_kamera_anbindung}
+\include{chapters/ch20_kalibrierung}
+\include{chapters/ch21_kalman_knoten}
+\include{chapters/ch22_merkmalserkennung}
+
+% =============================================================
+% TEIL VII  --  Tischtennisroboter: Mechanik, Kamera-Architektur, CAD/URDF
+% =============================================================
+\part{Tischtennisroboter: Mechanik, Kamera-Architektur und CAD/URDF}
+
+\include{chapters/ch23_kamera_architektur}
+\include{chapters/ch24_portalsystem}
+\include{chapters/ch25_hebelarm}
+\include{chapters/ch26_simulierbarkeit}
+\include{chapters/ch27_cad_module}
+
+% =============================================================
+% TEIL VIII  --  Dokumentationsmethodik
+% =============================================================
+\part{Dokumentationsmethodik}
+
+\include{chapters/ch28_dokumentation}
+
+% =============================================================
+% Back matter
+% =============================================================
+\clearpage
+\printbibliography[heading=bibintoc,title={Literaturverzeichnis}]
+
+\end{document}

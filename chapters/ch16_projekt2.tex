@@ -1,0 +1,55 @@
+% =============================================================
+%  ch16_projekt2.tex  --  Projekt 2: Tischtennisroboter
+% =============================================================
+
+\chapter{Projekt 2 -- Tischtennisroboter}
+
+\textbf{Ziel:} Ballflug per Stereokamera + Kalman schätzen, Roboter fährt an
+die Abschlagposition und schätzt Abschlagzeitpunkt und -trajektorie.
+
+\section{ROS\,2-Bausteine}
+\begin{longtable}{@{}p{2.6cm}p{12cm}@{}}
+\toprule
+\textbf{Typ} & \textbf{Konkret} \\
+\midrule
+Nodes   & \code{stereo\_camera} (Treiber) $\cdot$
+          \code{stereo\_image\_proc} (Disparität/Tiefe) $\cdot$
+          \code{ball\_detector} (Farb-/Blob-Erkennung $\rightarrow$ 3D-Position) $\cdot$
+          \code{ball\_tracker} (EKF, Flugvorhersage) $\cdot$
+          \code{strike\_planner} (Abfangpunkt + Zeit + Schlagbahn) $\cdot$
+          \code{robot\_controller} (Projekt-1-Stack) \\
+Topics  & \code{/left/image\_raw}, \code{/right/image\_raw} $\cdot$
+          \code{/points2} $\cdot$
+          \code{/ball/position} $\cdot$
+          \code{/ball/predicted\_trajectory} $\cdot$
+          \code{/robot/target\_pose} \\
+Actions & \code{FollowJointTrajectory} (Schlagbewegung) \\
+Parameter & Kamerakalibrierung, Ballfarbe/-radius, EKF-$Q$/$R$, Tischgeometrie \\
+\bottomrule
+\end{longtable}
+
+\section{rqt\_graph (vereinfacht)}
+\begin{center}
+\begin{tikzpicture}[node distance=5mm and 11mm]
+\node[node] (cam) {/stereo\_camera};
+\node[node,right=of cam] (sip) {/stereo\_image\_proc};
+\node[node,right=of sip] (det) {/ball\_detector};
+\node[node,right=of det] (trk) {/ball\_tracker\\\scriptsize (EKF)};
+\node[node,below=9mm of trk] (plan) {/strike\_planner};
+\node[node,left=of plan] (rc) {/robot\_controller};
+\draw[flow] (cam) -- node[topic,fill=white,inner sep=1pt]{\scriptsize L/R img} (sip);
+\draw[flow] (sip) -- node[topic,fill=white,inner sep=1pt]{\scriptsize points2} (det);
+\draw[flow] (det) -- node[topic,fill=white,inner sep=1pt]{\scriptsize ball/pos} (trk);
+\draw[flow] (trk) -- node[topic,fill=white,inner sep=1pt]{\scriptsize pred traj} (plan);
+\draw[flow] (plan) -- node[topic,fill=white,inner sep=1pt]{\scriptsize target pose} (rc);
+\end{tikzpicture}
+\captionof{figure}{Projekt~2: Wahrnehmungskette von der Stereokamera über den
+EKF bis zum Schlagplaner und Roboter.}
+\end{center}
+
+\noindent\textbf{Kernidee:} Der EKF (Kapitel~\ref{ch:kalman},
+konstante-Beschleunigung-Modell mit Gravitation) bekommt die verrauschten
+3D-Ballpositionen und extrapoliert per reiner Prädiktion bis zur Schlagebene.
+Daraus folgen Abfangpunkt und -zeit.
+\textbf{Hauptsächlich reales Problem:} Latenz und Timing -- in der Simulation
+triviale Zeit, real kritisch.

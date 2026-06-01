@@ -1,0 +1,68 @@
+% =============================================================
+%  ch04_stereosehen.tex  --  Stereosehen und Merkmalserkennung
+% =============================================================
+
+\chapter{Stereosehen und Merkmalserkennung}
+
+\section{Lochkameramodell und Tiefe aus Disparität}
+Eine kalibrierte Kamera bildet einen 3D-Punkt über die Intrinsik-Matrix $\bm{K}$
+ab:
+\begin{equation}
+\bm{K} = \begin{pmatrix} f_x & 0 & c_x \\ 0 & f_y & c_y \\ 0 & 0 & 1 \end{pmatrix}
+\end{equation}
+Bei zwei horizontal um die \textbf{Basislinie} $b$ versetzten Kameras erscheint
+ein Punkt im linken und rechten Bild an leicht verschiedener Spalte; die
+Differenz ist die \textbf{Disparität} $d$. Die Tiefe folgt direkt:
+\begin{equation}
+\boxed{\,Z = \dfrac{f\cdot b}{d}\,}
+\end{equation}
+Große Basislinie $\rightarrow$ bessere Tiefenauflösung in der Ferne, aber
+kleinerer überlappender Sichtbereich in der Nähe. Die Disparität wird auf
+\emph{rektifizierten} Bildern berechnet (beide Bildebenen koplanar,
+Epipolarlinien horizontal), typisch mit \code{StereoBM} (schnell) oder
+\code{StereoSGBM} (genauer) aus OpenCV.
+
+\section{Kalibrierung}
+Beide Kameras müssen kalibriert werden (Intrinsik + Verzerrung) und zueinander
+(Extrinsik: $\bm{R},\bm{t}$ zwischen den Linsen). Standard ist ein
+Schachbrettmuster und das ROS\,2-Paket \code{camera\_calibration} aus dem
+\code{image\_pipeline}. Ergebnis sind \code{.yaml}-Dateien, die der Treiber
+lädt. \textbf{Ohne saubere Kalibrierung ist jede Tiefenmessung wertlos} -- das
+ist der erste reale Stolperstein gegenüber der Simulation, wo die ``Kamera''
+perfekt kalibriert ist.
+
+\section{Merkmalserkennung ohne eigenes KI-Training}
+Es gibt ausgereifte \emph{klassische} Detektoren, die ohne Trainingsdaten und
+ohne neuronale Netze auskommen. Sie finden markante, wiedererkennbare
+Bildpunkte (Ecken, Blobs) und beschreiben deren lokale Umgebung:
+\begin{longtable}{@{}p{2.4cm}p{4.5cm}p{8cm}@{}}
+\toprule
+\textbf{Detektor} & \textbf{Eigenschaft} & \textbf{Einsatz} \\
+\midrule
+\textbf{ORB}   & schnell, binär, lizenzfrei    & Echtzeit-Matching, VO, Standardwahl für Hobby \\
+\textbf{SIFT}  & skalierungs-/rotationsinvariant, robust & genaues Matching, CAD-Posenschätzung \\
+\textbf{AKAZE} & gute Balance                  & Alternative zu SIFT/ORB \\
+\textbf{BRISK} & binär, schnell                & ressourcenarme Plattformen \\
+\bottomrule
+\end{longtable}
+\noindent Alle sind in OpenCV enthalten (\code{cv2.ORB\_create()} usw.) und über
+\code{cv\_bridge} in ROS\,2 nutzbar. Das Matching erfolgt mit \code{BFMatcher}
+(Brute Force) oder \code{FLANN}, gefolgt von Ausreißerfilterung
+(Lowe-Ratio-Test, RANSAC). Für \textbf{Bewegungserkennung} (Projekt~3) brauchst
+du nicht einmal Merkmale: Hintergrundsubtraktion
+(\code{cv2.createBackgroundSubtractorMOG2}) oder optischer Fluss
+(\code{calcOpticalFlowFarneback}) reichen.
+
+\section{Posenschätzung -- 6D-Lage eines Bauteils}
+Für Projekt~4 (CAD-Matching) gibt es zwei Hauptwege:
+\begin{enumerate}
+\item \textbf{2D-3D über PnP:} Merkmale im Kamerabild gegen bekannte 3D-Punkte
+  des CAD-Modells matchen, dann \code{cv2.solvePnPRansac()} liefert Rotation +
+  Translation des Bauteils relativ zur Kamera.
+\item \textbf{3D-3D über ICP:} Aus der Stereokamera eine Punktwolke erzeugen und
+  per \textbf{Iterative Closest Point} an die aus dem CAD-Modell gesampelte
+  Punktwolke anpassen (z.\,B.\ mit Open3D). Liefert die volle 6D-Pose, robust
+  bei guter Initialschätzung.
+\end{enumerate}
+Das Ergebnis (Rotation als Quaternion + Translation) wird in TF veröffentlicht
+und vom Greifplaner (MoveIt\,2) konsumiert.

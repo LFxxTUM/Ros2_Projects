@@ -1,0 +1,45 @@
+% =============================================================
+%  ch13_sim_real_trennung.tex  --  Wo sich Simulation und Realität trennen
+% =============================================================
+
+\chapter{Wo sich Simulation und reale Implementierung trennen}
+
+Das ist die architektonisch wichtigste Einsicht des ganzen Dokuments. Der Trick
+von \textbf{ros2\_control}: deine High-Level-Knoten (Trajektorienplaner, Vision,
+Kalman, Nav2) bleiben \emph{identisch}. Was sich ändert, ist nur die unterste
+Schicht -- das \textbf{Hardware-Interface-Plugin}.
+
+\begin{center}
+\begin{tikzpicture}[node distance=8mm]
+\node[node,fill=accent!8] (high)
+  {High-Level-Knoten\\\scriptsize Trajektorie $\cdot$ Vision $\cdot$ Kalman $\cdot$ Nav2 $\cdot$ MoveIt2};
+\node[node,below=of high] (ctrl)
+  {controller\_manager\\\scriptsize joint\_trajectory\_controller, joint\_state\_broadcaster};
+\node[node,below left=10mm and -10mm of ctrl,fill=accent!18] (sim)
+  {Sim-Hardware-Interface\\\scriptsize gz\_ros2\_control};
+\node[node,below right=10mm and -10mm of ctrl,fill=accent2!12,draw=accent2] (real)
+  {Reales Hardware-Interface\\\scriptsize micro-ROS / Serial $\rightarrow$ ESP32 $\rightarrow$ TMC2209};
+\node[node,below=8mm of sim] (gz)
+  {Gazebo Harmonic\\\scriptsize Physik + Sensoren};
+\node[node,below=8mm of real,draw=accent2,fill=accent2!8] (hw)
+  {Realer Roboter\\\scriptsize Motoren, Encoder, Kamera};
+\draw[flow] (high)--(ctrl);
+\draw[flow] (ctrl)--(sim);
+\draw[flow] (ctrl)--(real);
+\draw[flow] (sim)--(gz);
+\draw[flow] (real)--(hw);
+\node[font=\scriptsize\itshape,accent] at ($(high)+(6.4,0)$)
+  {\;identisch in Sim \& Real};
+\end{tikzpicture}
+\captionof{figure}{Sim-zu-Real: nur die unterste Schicht (Hardware-Interface)
+wird getauscht. Alles darüber bleibt gleich.}
+\end{center}
+
+\noindent Konkret: In der Simulation lädt die URDF das Plugin
+\code{gz\_ros2\_control/GazeboSimSystem}. Für die echte Maschine schreibst du
+ein eigenes \code{hardware\_interface::SystemInterface}, das Sollwerte an den
+ESP32 schickt (micro-ROS oder serielle Brücke) und Gelenkzustände
+(Encoder/StallGuard) zurückliest. \textbf{Dieselben Controller, dieselben
+Topics, dieselbe Trajektorie} -- du tauschst eine Plugin-Zeile und die
+Hardware. Genauso bei der Kamera: simulierte Bildquelle vs.\ \code{v4l2\_camera}
+-- die nachgelagerte Vision-Pipeline merkt keinen Unterschied.

@@ -1,0 +1,96 @@
+% =============================================================
+%  ch14_cad_urdf.tex  --  Vorabschritte: vom CAD-Modell zur Simulation
+% =============================================================
+
+\chapter{Vorabschritte: vom CAD-Modell zur Simulation}
+
+Bevor du simulierst, brauchst du ein \textbf{URDF} (Unified Robot Description
+Format) -- die XML-Beschreibung deines Roboters aus \emph{Links} (starre
+Körper) und \emph{Joints} (Gelenke dazwischen).
+
+\section{Getrennte STL-Exporte pro Gelenk}
+Wenn zwischen Teil\,A und Teil\,B eine Gelenkverbindung besteht, müssen beide
+\emph{separat} als Mesh (STL/DAE) exportiert werden -- denn jedes ist ein
+eigener Link mit eigenem Koordinatensystem, und das Gelenk dazwischen wird in
+der URDF definiert, nicht im CAD-Mesh. Vorgehen:
+\begin{enumerate}
+\item Im CAD die Gelenkachsen und je Link ein Referenz-Frame festlegen
+  (idealerweise Mesh-Ursprung = Gelenkpunkt -- erspart später viel Frame-Frust).
+\item \textbf{Jeden Link einzeln} als STL exportieren (Teil\,A, Teil\,B,
+  \dots), bevorzugt in seinem eigenen Frame.
+\item Masse + Trägheitstensor je Link aus dem CAD übernehmen (für korrekte
+  Dynamik).
+\item URDF schreiben: Links mit \code{visual}/\code{collision}/\code{inertial};
+  Joints mit \code{parent}/\code{child}, \code{origin} (Lage des Gelenks),
+  \code{axis} und \code{limit}.
+\end{enumerate}
+
+\begin{infobox}[title=Automatisierung -- nicht von Hand schreiben]
+Nutze einen CAD-zu-URDF-Exporter statt das XML manuell zu tippen:
+\textbf{sw2urdf} (SolidWorks), \textbf{onshape-to-robot} (OnShape) oder
+Fusion-360-Plugins. Du wählst Gelenkachsen und Referenz-Frames interaktiv; das
+Tool exportiert die Meshes \emph{und} eine konsistente URDF mit korrekten
+Frames und Trägheiten.
+\end{infobox}
+
+\begin{lstlisting}[style=xml,caption={URDF-Auszug: zwei Links mit Drehgelenk}]
+<link name="teilA">
+  <visual>
+    <geometry>
+      <mesh filename="package://my_robot/meshes/teilA.stl"/>
+    </geometry>
+  </visual>
+  <collision>
+    <geometry>
+      <mesh filename="package://my_robot/meshes/teilA.stl"/>
+    </geometry>
+  </collision>
+  <inertial>
+    <mass value="0.45"/>
+    <inertia ixx="0.001" iyy="0.001" izz="0.0008"
+             ixy="0" ixz="0" iyz="0"/>
+  </inertial>
+</link>
+
+<joint name="gelenk_AB" type="revolute">
+  <parent link="teilA"/>
+  <child  link="teilB"/>
+  <origin xyz="0 0 0.08" rpy="0 0 0"/>
+  <axis   xyz="0 0 1"/>
+  <limit lower="-1.57" upper="1.57" effort="12.0" velocity="3.0"/>
+</joint>
+
+<link name="teilB"> <!-- visual/collision/inertial wie oben --> </link>
+\end{lstlisting}
+
+\section{Gelenktypen}
+\begin{itemize}
+\item \code{revolute} -- Drehgelenk mit Anschlag (Limits). Der Normalfall für
+  Roboterarme.
+\item \code{continuous} -- Drehgelenk ohne Anschlag (Räder).
+\item \code{prismatic} -- Linearführung.
+\item \code{fixed} -- starre Verbindung (z.\,B.\ Kamera an Basis).
+\end{itemize}
+
+\section{Getriebeübersetzung in ros2\_control}
+Motor + Zykloidgetriebe werden als \emph{ein} angetriebenes Gelenk abstrahiert.
+Die Untersetzung steckt in der \textbf{ros2\_control-Transmission}:
+\begin{lstlisting}[style=xml,caption={Getriebeübersetzung als SimpleTransmission}]
+<transmission name="trans_gelenk_AB">
+  <type>transmission_interface/SimpleTransmission</type>
+  <joint name="gelenk_AB">
+    <hardwareInterface>
+      hardware_interface/PositionJointInterface
+    </hardwareInterface>
+  </joint>
+  <actuator name="motor_AB">
+    <mechanicalReduction>40</mechanicalReduction>  <!-- 40:1 -->
+  </actuator>
+</transmission>
+\end{lstlisting}
+\noindent Die Physik-Engine sieht nur das Ausgangsgelenk. Die Übersetzung
+bildet das Verhältnis Motorwinkel $\leftrightarrow$ Gelenkwinkel ab; die
+\emph{nach} dem Getriebe verfügbaren Werte trägst du als \code{effort}/
+\code{velocity}-Limits am Joint ein (hohes Moment, niedrige Drehzahl). Reales
+Restspiel und Reibung kannst du optional über die Joint-Dynamik
+(\code{damping}, \code{friction}) annähern.

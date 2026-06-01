@@ -1,0 +1,36 @@
+% =============================================================
+%  ch22_merkmalserkennung.tex  --  Merkmalserkennung ohne KI-Training
+% =============================================================
+
+\chapter{Merkmalserkennung ohne KI-Training}
+
+\begin{lstlisting}[style=py,caption={ORB-Erkennung und Matching (klassisch, kein Training nötig)}]
+import cv2
+
+orb = cv2.ORB_create(nfeatures=1500)
+# Referenzansicht des Bauteils (z.B. aus CAD-Render) einmalig beschreiben:
+kp_ref, des_ref = orb.detectAndCompute(ref_gray, None)
+matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
+
+def detect(frame_gray):
+    kp, des = orb.detectAndCompute(frame_gray, None)
+    if des is None:
+        return []
+    raw  = matcher.knnMatch(des_ref, des, k=2)
+    good = [m for m, n in raw if m.distance < 0.75 * n.distance]  # Lowe
+    return kp, good
+
+# 6D-Pose ueber 2D-3D-Korrespondenzen (CAD-Punkte <-> Bildpunkte):
+# ok, rvec, tvec = cv2.solvePnPRansac(obj_pts_3d, img_pts_2d,
+#                                      K, distCoeffs)
+\end{lstlisting}
+
+\noindent Für \textbf{Bewegungserkennung} (Projekt~3) genügt
+Hintergrundsubtraktion:
+\begin{lstlisting}[style=py,caption={Bewegungserkennung ohne Merkmale}]
+bg = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
+mask = bg.apply(frame)                      # bewegte Pixel
+contours, _ = cv2.findContours(
+    mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+movers = [c for c in contours if cv2.contourArea(c) > 500]
+\end{lstlisting}

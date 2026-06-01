@@ -1,0 +1,32 @@
+% =============================================================
+%  ch06_schrittmotoren.tex  --  Schrittmotoren und Drehmomentschätzung
+% =============================================================
+
+\chapter{Schrittmotoren und Drehmomentschätzung}
+
+\section{NEMA-17-Grundlagen}
+Ein NEMA-17 ist ein bipolarer Hybridschrittmotor mit typisch
+\textbf{1{,}8\textdegree/Schritt} = 200 Vollschritte/Umdrehung. Per
+\textbf{Microstepping} (z.\,B.\ 1/16, 1/256 beim TMC) wird sehr feinaufgelöst
+und vibrationsarm gefahren. Phasenströme typisch 0{,}4--2\,A, Haltemoment je
+nach Baulänge $\approx$ 0{,}2--0{,}6\,Nm. Im \textbf{offenen Regelkreis} kennt
+der Motor seine Last nicht -- bei Überlast verliert er Schritte unbemerkt.
+
+\section{Indirekte Drehmomentschätzung}
+Statt eines teuren Drehmomentsensors wird das Lastmoment aus den
+\emph{elektrischen} Größen geschätzt. Physikalischer Hintergrund: Bei einem
+belasteten Schrittmotor wächst der \textbf{Lastwinkel} (die Verschiebung
+zwischen Statorfeld und Rotor). Dieser zeigt sich in Phasenströmen und
+Gegen-EMK. Zwei praktische Umsetzungen:
+\begin{enumerate}
+\item \textbf{StallGuard (Trinamic):} Der Treiber misst intern die Gegen-EMK und
+  liefert einen lastproportionalen Zahlenwert (\code{SG\_RESULT}) über UART.
+  Das ist der bevorzugte Ansatz -- ein Proxy fürs Drehmoment ohne
+  Zusatzhardware.
+\item \textbf{Externe Strom-/Spannungsmessung:} Ein Sensormodul (z.\,B.\
+  INA226) misst Busspannung und -strom pro Treiber. Zusammen mit dem bekannten
+  Microstep-Zustand lässt sich die mechanische Leistung und damit das Moment
+  abschätzen.
+\end{enumerate}
+Beide Wege sind weniger präzise als ein echter Sensor, aber günstig und
+praktikabel -- siehe Teil~II für die konkrete Hardware.

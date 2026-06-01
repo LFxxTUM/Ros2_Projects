@@ -1,0 +1,59 @@
+% =============================================================
+%  ch15_projekt1.tex  --  Projekt 1: Stepper-Roboter mit Trajektorienbefehl
+% =============================================================
+
+\chapter{Projekt 1 -- Stepper-Roboter mit Trajektorienbefehl vom PC}
+
+\textbf{Ziel:} Vom externen PC eine gewünschte Trajektorie senden, der Roboter
+führt sie aus. Da es ein langer Auftrag mit Fortschritt/Abbruch ist, ist die
+natürliche Schnittstelle eine \textbf{Action}.
+
+\section{ROS\,2-Bausteine}
+\begin{longtable}{@{}p{2.6cm}p{12cm}@{}}
+\toprule
+\textbf{Typ} & \textbf{Konkret} \\
+\midrule
+Nodes   & \code{trajectory\_commander} (PC, Action-Client) $\cdot$
+          \code{controller\_manager} + \code{joint\_trajectory\_controller} +
+          \code{joint\_state\_broadcaster} $\cdot$
+          Hardware-Interface (Sim: \code{gz\_ros2\_control};
+          Real: micro-ROS$\rightarrow$ESP32) \\
+Actions & \code{control\_msgs/FollowJointTrajectory}
+          (Goal: Bahn; Feedback: Ist-Position; Result: Erfolg) \\
+Topics  & \code{/joint\_states} (Encoder/StallGuard) $\cdot$
+          \code{/joint\_trajectory\_controller/\ldots} $\cdot$ \code{/tf} \\
+Services & Controller laden/umschalten
+           (\code{/controller\_manager/switch\_controller}) \\
+Parameter & Gelenklimits, Getriebeübersetzung, Reglerverstärkungen \\
+\bottomrule
+\end{longtable}
+
+\section{rqt\_graph (vereinfacht)}
+\begin{center}
+\begin{tikzpicture}[node distance=6mm and 16mm]
+\node[node] (cmd)  {/trajectory\_commander\\\scriptsize (PC, Action-Client)};
+\node[node,right=of cmd] (jtc)  {/joint\_trajectory\_\\controller};
+\node[node,right=of jtc] (hw)   {/hardware\_interface\\\scriptsize (ESP32 via micro-ROS)};
+\node[topic,below=10mm of jtc] (js) {/joint\_states};
+\node[node,below=6mm of cmd]   (rviz) {/rviz2};
+\draw[flow] (cmd) -- node[topic,fill=white,inner sep=1pt]{\scriptsize action goal} (jtc);
+\draw[flow] (jtc) -- node[topic,fill=white,inner sep=1pt]{\scriptsize commands} (hw);
+\draw[flow] (hw)  |- (js);
+\draw[flow] (js)  -| (jtc);
+\draw[flow] (js)  -| (rviz);
+\draw[flow,dashed,accent2] (jtc) to[bend left=20]
+  node[above,font=\scriptsize\itshape]{feedback} (cmd);
+\end{tikzpicture}
+\captionof{figure}{Projekt~1: Der PC schickt eine Trajektorie als Action-Goal;
+der Controller kommandiert das Hardware-Interface (ESP32) und liest
+\code{/joint\_states} zur Regelung zurück.}
+\end{center}
+
+\noindent\textbf{Datenfluss:}
+PC $\rightarrow$ Action-Goal (Bahn) $\rightarrow$
+\code{joint\_trajectory\_controller} interpoliert $\rightarrow$
+Sollwerte ans Hardware-Interface $\rightarrow$
+ESP32 erzeugt Schritte am TMC2209, liest StallGuard/Encoder $\rightarrow$
+\code{/joint\_states} zurück $\rightarrow$ Regelschleife schließt sich.
+In Simulation ersetzt \code{gz\_ros2\_control} den ESP32 -- der PC-Code bleibt
+unverändert.

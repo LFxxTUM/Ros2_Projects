@@ -1,0 +1,89 @@
+% =============================================================
+%  ch02_kalman_ekf.tex  --  Zustandsschätzung: Kalman-Filter und EKF
+% =============================================================
+
+\chapter{Zustandsschätzung: Kalman-Filter und EKF}
+
+\section{Das Grundproblem}
+Du willst eine verborgene Größe (Position und Geschwindigkeit des
+Tischtennisballs, Pose des Roboters) aus verrauschten, unvollständigen
+Messungen schätzen -- und das, während sich der Zustand zeitlich ändert. Der
+Kalman-Filter ist der optimale lineare Schätzer für genau dieses Problem unter
+gaußschem Rauschen. Er hält nicht nur einen Schätzwert $\hat{\bm{x}}$, sondern
+auch dessen \textbf{Unsicherheit} als Kovarianzmatrix $\bm{P}$.
+
+\section{Lineares Zustandsraummodell}
+\begin{align}
+\bm{x}_k &= \bm{F}\,\bm{x}_{k-1} + \bm{B}\,\bm{u}_k + \bm{w}_k,
+  & \bm{w}_k &\sim \mathcal{N}(\bm{0},\bm{Q})
+  \quad\text{(Prozessrauschen)}\\
+\bm{z}_k &= \bm{H}\,\bm{x}_k + \bm{v}_k,
+  & \bm{v}_k &\sim \mathcal{N}(\bm{0},\bm{R})
+  \quad\text{(Messrauschen)}
+\end{align}
+$\bm{F}$ = Systemmatrix (wie entwickelt sich der Zustand),
+$\bm{B}$ = Steuermatrix,
+$\bm{H}$ = Messmatrix (was misst der Sensor vom Zustand),
+$\bm{Q}/\bm{R}$ = Rausch-Kovarianzen (deine wichtigsten Tuning-Größen).
+
+\section{Die zwei Phasen}
+Der Filter alterniert zwischen \textbf{Prädiktion} (Modell rechnet voraus,
+Unsicherheit wächst) und \textbf{Korrektur} (Messung zieht zurück, Unsicherheit
+sinkt).
+
+\begin{infobox}[title=Prädiktion (Zeitschritt)]
+\vspace{-6pt}
+\begin{align*}
+\hat{\bm{x}}_k^- &= \bm{F}\,\hat{\bm{x}}_{k-1} + \bm{B}\,\bm{u}_k \\
+\bm{P}_k^-       &= \bm{F}\,\bm{P}_{k-1}\,\bm{F}^\top + \bm{Q}
+\end{align*}
+\end{infobox}
+\begin{infobox}[title=Korrektur (Messupdate)]
+\vspace{-6pt}
+\begin{align*}
+\bm{K}_k      &= \bm{P}_k^-\,\bm{H}^\top
+  \left(\bm{H}\,\bm{P}_k^-\,\bm{H}^\top + \bm{R}\right)^{-1}
+  &&\text{(Kalman-Gain)}\\
+\hat{\bm{x}}_k &= \hat{\bm{x}}_k^-
+  + \bm{K}_k\left(\bm{z}_k - \bm{H}\,\hat{\bm{x}}_k^-\right)
+  &&\text{(Innovation gewichtet)}\\
+\bm{P}_k      &= (\bm{I} - \bm{K}_k\,\bm{H})\,\bm{P}_k^-
+\end{align*}
+\end{infobox}
+Der Gain $\bm{K}$ ist die Gewichtung: Ist die Messung präzise ($\bm{R}$ klein),
+vertraut der Filter ihr; ist das Modell präzise ($\bm{Q}$ klein), glättet er
+stärker.
+
+\section{Extended Kalman Filter (EKF)}
+Sobald System oder Messung \textbf{nichtlinear} sind -- und das sind sie in der
+Robotik fast immer (Rotationen, Projektilflug mit Luftwiderstand,
+Kameraprojektion) --, ersetzt man die Matrizen durch nichtlineare Funktionen
+$\bm{f}(\cdot)$ und $\bm{h}(\cdot)$ und linearisiert sie pro Schritt über die
+\textbf{Jacobi-Matrizen}:
+\begin{equation}
+\bm{F}_k = \left.\frac{\partial \bm{f}}{\partial \bm{x}}\right|_{\hat{\bm{x}}_{k-1}},
+\qquad
+\bm{H}_k = \left.\frac{\partial \bm{h}}{\partial \bm{x}}\right|_{\hat{\bm{x}}_k^-}
+\end{equation}
+Prädiktion nutzt dann $\hat{\bm{x}}_k^- = \bm{f}(\hat{\bm{x}}_{k-1},\bm{u}_k)$,
+die Kovarianz-Updates verwenden $\bm{F}_k, \bm{H}_k$.
+Der \textbf{UKF} (Unscented) vermeidet die Jacobi-Matrizen, indem er
+``Sigma-Punkte'' durch die Nichtlinearität propagiert -- genauer bei starker
+Krümmung, aber rechenintensiver. Für Lageschätzung mit Quaternionen nimmt man
+den \textbf{Error-State/Multiplicative EKF} (Fehlerzustand als kleiner 3D-Rotationsvektor
+im Tangentialraum, multiplikativ aufs Quaternion angewandt).
+
+\section{Anwendung Tischtennisball (konstante Beschleunigung)}
+Zustand $\bm{x} = [x,y,z,\dot{x},\dot{y},\dot{z}]^\top$, Schwerkraft als
+bekannte Steuerung. Mit Zeitschritt $\Delta t$:
+\begin{equation}
+\bm{F} = \begin{pmatrix} \bm{I}_3 & \Delta t\,\bm{I}_3 \\ \bm{0} & \bm{I}_3 \end{pmatrix},\quad
+\bm{B}\bm{u} = \begin{pmatrix} \tfrac{1}{2}\Delta t^2\,\bm{g} \\ \Delta t\,\bm{g} \end{pmatrix},\quad
+\bm{g}=\begin{pmatrix}0\\0\\-9.81\end{pmatrix},\quad
+\bm{H} = \begin{pmatrix} \bm{I}_3 & \bm{0} \end{pmatrix}
+\end{equation}
+Die Stereokamera liefert nur die Position (daher $\bm{H}$ projiziert auf die
+ersten drei Komponenten); der Filter schätzt die Geschwindigkeit mit und
+extrapoliert per Prädiktion (ohne Messupdate) den Flug bis zur Schlagebene --
+das ist die Vorhersage des Abschlagzeitpunkts. Luftwiderstand und Magnus-Effekt
+(Spin) machen das Modell nichtlinear $\rightarrow$ EKF, falls nötig.

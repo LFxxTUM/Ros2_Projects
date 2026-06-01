@@ -1,0 +1,47 @@
+% =============================================================
+%  ch21_kalman_knoten.tex  --  Kalman-Filter-Knoten (Ballverfolgung)
+% =============================================================
+
+\chapter{Kalman-Filter-Knoten (Ballverfolgung)}
+
+\begin{lstlisting}[style=py,caption={EKF/KF-Knoten: 3D-Position rein, geglättete Schätzung + Vorhersage raus}]
+import numpy as np, rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PointStamped
+
+class BallTracker(Node):
+    def __init__(self):
+        super().__init__('ball_tracker')
+        dt = 1/60.0
+        self.x = np.zeros((6,1))              # [x y z vx vy vz]
+        self.P = np.eye(6) * 1.0
+        self.F = np.eye(6); self.F[:3,3:] = np.eye(3)*dt
+        self.g  = np.array([[0],[0],[-9.81]])
+        self.Bu = np.vstack([0.5*dt**2*self.g, dt*self.g])
+        self.H  = np.zeros((3,6)); self.H[:,:3] = np.eye(3)
+        self.Q  = np.eye(6)*0.01
+        self.R  = np.eye(3)*0.0025            # ~5 cm Messrauschen
+        self.sub   = self.create_subscription(
+            PointStamped, '/ball/position', self.update, 10)
+        self.timer = self.create_timer(dt, self.predict)
+
+    def predict(self):
+        self.x = self.F @ self.x + self.Bu
+        self.P = self.F @ self.P @ self.F.T + self.Q
+
+    def update(self, msg):
+        z = np.array([[msg.point.x],[msg.point.y],[msg.point.z]])
+        S = self.H @ self.P @ self.H.T + self.R
+        K = self.P @ self.H.T @ np.linalg.inv(S)   # Kalman-Gain
+        self.x = self.x + K @ (z - self.H @ self.x)
+        self.P = (np.eye(6) - K @ self.H) @ self.P
+
+    def predict_intercept(self, z_plane):
+        # reine Praediktion bis zur Schlagebene (kein Messupdate)
+        x = self.x.copy()
+        for _ in range(120):
+            x = self.F @ x + self.Bu
+            if x[2,0] <= z_plane:
+                return x[:3].flatten()
+        return None
+\end{lstlisting}

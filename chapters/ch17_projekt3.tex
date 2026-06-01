@@ -1,0 +1,47 @@
+% =============================================================
+%  ch17_projekt3.tex  --  Projekt 3: Mobiler Roboter
+% =============================================================
+
+\chapter{Projekt 3 -- Mobiler Roboter: Odometrie, Navigation, Bewegungserkennung}
+
+\textbf{Ziel:} Mit Stereokamera, Odometrie und Pfadalgorithmen navigieren und
+Bewegung erkennen.
+
+\section{ROS\,2-Bausteine}
+\begin{longtable}{@{}p{2.6cm}p{12cm}@{}}
+\toprule
+\textbf{Typ} & \textbf{Konkret} \\
+\midrule
+Nodes   & \code{stereo\_camera} $\cdot$
+          \code{visual\_odometry} oder Radodometrie $\cdot$
+          \code{robot\_localization} (EKF: Odom+IMU) $\cdot$
+          \code{slam\_toolbox} (Karte) $\cdot$
+          \code{nav2} (Planer+Controller) $\cdot$
+          \code{motion\_detector} (optischer Fluss/Hintergrundsubtraktion) \\
+Topics  & \code{/odom} $\cdot$ \code{/tf} $\cdot$
+          \code{/scan} bzw.\ \code{/points2} $\cdot$
+          \code{/map} $\cdot$ \code{/cmd\_vel} \\
+Actions & \code{nav2\_msgs/NavigateToPose} \\
+Parameter & Kostenkarte, Controller-Frequenz, EKF-Konfiguration, Roboterfußabdruck \\
+\bottomrule
+\end{longtable}
+
+\begin{center}
+\begin{tikzpicture}[node distance=5mm and 11mm]
+\node[node] (cam) {/stereo\_camera};
+\node[node,below=8mm of cam] (vo) {/visual\_odometry};
+\node[node,right=14mm of vo] (rl) {/robot\_localization\\\scriptsize (EKF)};
+\node[node,right=of rl] (slam) {/slam\_toolbox};
+\node[node,right=of slam] (nav) {/nav2};
+\node[node,above=8mm of nav] (md) {/motion\_detector};
+\draw[flow] (cam) -- (vo);
+\draw[flow] (cam) -| (md);
+\draw[flow] (vo) -- node[topic,fill=white,inner sep=1pt]{\scriptsize odom} (rl);
+\draw[flow] (rl) -- node[topic,fill=white,inner sep=1pt]{\scriptsize tf} (slam);
+\draw[flow] (slam) -- node[topic,fill=white,inner sep=1pt]{\scriptsize map} (nav);
+\draw[flow] (nav) to[bend right=18]
+  node[below,font=\scriptsize]{cmd\_vel} ($(vo)+(0,-1.2)$);
+\end{tikzpicture}
+\captionof{figure}{Projekt~3: Odometrie $\rightarrow$ EKF-Fusion $\rightarrow$
+SLAM $\rightarrow$ Nav2; Bewegungserkennung als paralleler Zweig.}
+\end{center}

@@ -1,0 +1,96 @@
+% =============================================================
+%  ch23_kamera_architektur.tex  --  Kamera-Architektur: wo wird gerechnet?
+% =============================================================
+
+\chapter{Kamera-Architektur -- wo wird gerechnet?}
+
+Lohnt es sich, die Stereokamera an den ESP32 / Raspberry Pi Zero zu hängen und
+die Rohdaten per ROS-Service oder einfachem UDP/WLAN weiterzuleiten -- oder
+entstehen Zeit-/Rechenleistungsprobleme?
+
+\section{Die Bandbreitenrechnung entscheidet}
+Die synchronisierte Stereokamera liefert ein side-by-side-Bild
+(z.\,B.\ $2\times1280\times720$). Was das pro Sekunde bedeutet:
+\begin{longtable}{@{}p{6.2cm}rr@{}}
+\toprule
+\textbf{Datenstrom} & \textbf{pro Frame} & \textbf{bei 60\,fps} \\
+\midrule
+Stereo roh, YUYV (2\,B/px), $2560\times720$ & 3{,}69\,MB & $\approx$\,1769\,Mbit/s \\
+Stereo MJPEG-komprimiert ($\approx$\,1:10)   & 0{,}37\,MB & $\approx$\,177\,Mbit/s \\
+\textbf{Nur 3D-Ballposition} (Header + 3 Floats) & $\approx$\,80\,B & $\approx$\,0{,}1\,Mbit/s \\
+\bottomrule
+\end{longtable}
+\noindent Dem gegenüber die realistischen Linkkapazitäten:
+\begin{longtable}{@{}p{6.2cm}r@{}}
+\toprule
+\textbf{Verbindung} & \textbf{real nutzbar} \\
+\midrule
+ESP32 WLAN (TCP, real)         & $\approx$\,10--30\,Mbit/s \\
+Pi Zero (2{,}4\,GHz WLAN)     & einige zehn Mbit/s, hoher Jitter \\
+Pi\,4 WLAN (Dualband)          & $\approx$\,100--300\,Mbit/s, mit Jitter \\
+Pi\,4 Gigabit-Ethernet (Kabel) & 1000\,Mbit/s, deterministisch \\
+USB\,2 / USB\,3               & 480 / 5000\,Mbit/s \\
+\bottomrule
+\end{longtable}
+
+\section{Verdikt pro Plattform}
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[ESP32 -- nein.] Zwei harte Gründe: (1)~Der ESP32 ist \emph{kein}
+  USB-Host für UVC-Kameras. (2)~177--1769\,Mbit/s liegen um Größenordnungen
+  über seinem WLAN-Durchsatz. Der ESP32 gehört auf die
+  \textbf{Echtzeit-Motorebene}, nicht an die Kamera.
+\item[Pi Zero -- technisch möglich, aber schlechte Idee.] Der Zero\,2\,W kann
+  mit OTG-Adapter eine UVC-Kamera einlesen, aber: schwache CPU, nur
+  2{,}4-GHz-WLAN, und er wäre allein mit dem Datenschaufeln gesättigt. Für
+  einen \emph{latenzkritischen} Balltracker ist WLAN-Jitter Gift.
+\item[Pi\,4 -- ja, und das ist der richtige Ansatz.] Der Pi\,4 hat USB\,3,
+  Gigabit-Ethernet und eine brauchbare Quad-Core-CPU. Er kann die Kamera
+  einlesen \emph{und die Bildverarbeitung lokal machen}.
+\end{description}
+
+\begin{infobox}[title={Das richtige Muster: am Rand rechnen, nur das Ergebnis senden}]
+Schiebe nicht die Pixel durchs Netz, sondern die \textbf{Erkenntnis}. Lass den
+Pi\,4 (direkt an der Kamera) die Stereo-Erkennung machen und nur die
+\textbf{3D-Ballposition} publizieren -- das sind $\approx$\,0{,}1\,Mbit/s,
+trivial über jedes Netz. ROS\,2/DDS transportiert das Topic
+netzwerktransparent zum PC; du brauchst kein manuelles UDP. Für deterministische
+Latenz: \textbf{Pi\,4 per Kabel-Gigabit-Ethernet} an den PC.
+\end{infobox}
+
+\section{Sparse statt dense: der Ball braucht keine volle Tiefenkarte}
+Eine dichte Disparitätskarte (SGBM über das ganze Bild) ist teuer. Für die
+Ballverfolgung genügt \textbf{sparse Triangulation}: den Ball (heller Blob) in
+\emph{beiden} rektifizierten Bildern detektieren, je Bild seine Pixelspalte
+bestimmen, daraus die Disparität \emph{nur dieses einen Punktes} und über
+$Z=fb/d$ die Tiefe. Das läuft auf dem Pi\,4 locker bei 60--120\,fps.
+
+\section{ROS-Service, UDP oder Topic?}
+\begin{itemize}
+\item \textbf{ROS-Service: falsch} für Streaming. Services sind synchrones
+  Request/Response (blockierend, one-shot) -- für kontinuierliche Bild-/Positionsströme
+  ungeeignet.
+\item \textbf{ROS-Topic: richtig.} Ergebnis (Ballposition) als
+  \code{RELIABLE}-Topic; falls du doch Bilder überträgst,
+  \code{image\_transport} mit \code{compressed} und QoS \code{BEST\_EFFORT}.
+\item \textbf{Rohes UDP/GStreamer: nur als letzter Ausweg}, wenn du ROS für
+  reines Bildstreaming umgehen willst -- du verlierst dann die ROS-Integration.
+  Für berechnete Ergebnisse unnötig.
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[node distance=6mm and 14mm]
+\node[node,fill=accent2!8,draw=accent2] (cam)
+  {Stereokamera\\\scriptsize USB};
+\node[node,right=of cam] (pi)
+  {Raspberry Pi\,4\\\scriptsize Stereo + Balldetektion\\\scriptsize (sparse Triangulation)};
+\node[node,right=22mm of pi] (pc)
+  {Externer PC\\\scriptsize EKF + Schlagplaner};
+\node[node,below=8mm of pc] (esp)
+  {ESP32 (micro-ROS)\\\scriptsize Achsen / Schrittmotoren};
+\draw[flow] (cam) -- node[topic,fill=white,inner sep=1pt]{\scriptsize USB3} (pi);
+\draw[flow] (pi)  -- node[topic,fill=white,inner sep=1pt]{\scriptsize /ball/position (GbE)} (pc);
+\draw[flow] (pc)  -- node[topic,fill=white,inner sep=1pt]{\scriptsize Soll-Trajektorie} (esp);
+\end{tikzpicture}
+\captionof{figure}{Empfohlene Architektur: schwere Pixelarbeit am Pi\,4 nahe der
+Kamera, nur die destillierte Ballposition wandert (kabelgebunden) zum PC.}
+\end{center}

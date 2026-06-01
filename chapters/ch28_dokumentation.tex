@@ -1,0 +1,40 @@
+% =============================================================
+%  ch28_dokumentation.tex  --  Dokumentationsmethodik
+% =============================================================
+
+\chapter{Vorgehensweise festhalten}
+
+Eine konsistente Dokumentation der Projekte schlägt folgende Struktur und
+Werkzeuge vor:
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[Versionskontrolle] Alles in \textbf{Git}. Ein Monorepo oder ein Repo je
+  Projekt mit klarer \code{README}.
+\item[Verzeichnisstruktur]
+  \code{/docs} (Theorie, Entscheidungen),
+  \code{/design} (CAD, URDF, Frames),
+  \code{/hardware} (Stückliste/BOM, Verdrahtung, Pinbelegung),
+  \code{/software} (Pakete, Launch-Files, Parameter-YAMLs),
+  \code{/calibration} (Kamera-\code{.yaml}),
+  \code{/logs} (Tests, \code{ros2 bag}-Aufzeichnungen).
+\item[Entscheidungsprotokoll (ADR)] Kurze Notizen ``Warum TMC2209 statt
+  A4988?'', ``Warum Jazzy statt Humble?'' -- spart in Monaten viel Grübeln.
+\item[Code-Doku] \textbf{Doxygen} (C++) bzw.\ Docstrings + \textbf{Sphinx}
+  (Python); \code{rosdoc2} für ROS\,2-Pakete.
+\item[Reproduzierbarkeit] Launch-Files und Parameter-YAMLs sind Teil der Doku
+  -- sie machen ein Experiment wiederholbar. \code{rqt\_graph}-Screenshots je
+  Projekt beilegen.
+\item[Nachweise] \code{ros2 bag} zeichnet reale Läufe auf; damit kannst du
+  Vision/Kalman \emph{offline} debuggen und Sim vs.\ Real vergleichen.
+\end{description}
+
+\begin{infobox}[title=Empfohlene Reihenfolge der Umsetzung]
+1.\ Setup (Teil~III)
+$\rightarrow$ 2.\ URDF aus CAD + in Gazebo bewegen (Teil~IV)
+$\rightarrow$ 3.\ \code{ros2\_control} in Sim, Trajektorie abfahren (Projekt~1 simuliert)
+$\rightarrow$ 4.\ Stereokamera real anbinden + kalibrieren (Teil~VI)
+$\rightarrow$ 5.\ Kalman/Vision auf simulierten \emph{und} realen Daten
+$\rightarrow$ 6.\ Hardware-Interface tauschen, ESP32 + TMC2209 real
+$\rightarrow$ 7.\ projektspezifische Logik (Tischtennis, Navigation, Greifen).
+Jeder Schritt ist für sich testbar -- das ist der Sinn der
+ros2\_control-Trennung.
+\end{infobox}

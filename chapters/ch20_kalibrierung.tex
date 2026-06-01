@@ -1,0 +1,18 @@
+% =============================================================
+%  ch20_kalibrierung.tex  --  Kalibrieren und Tiefe erzeugen
+% =============================================================
+
+\chapter{Kalibrieren und Tiefe erzeugen}
+
+\begin{lstlisting}[style=bash,caption={Stereokalibrierung (Schachbrett) und Tiefenpipeline}]
+# Kalibrieren: erzeugt left.yaml / right.yaml
+#              mit Intrinsik + Extrinsik
+ros2 run camera_calibration cameracalibrator \
+  --size 8x6 --square 0.025 \
+  --ros-args -r left:=/left/image_raw \
+             -r right:=/right/image_raw
+
+# Rektifizierung + Disparitaet -> Tiefe / Punktwolke
+ros2 launch stereo_image_proc stereo_image_proc.launch.py
+# liefert /disparity und /points2
+\end{lstlisting}

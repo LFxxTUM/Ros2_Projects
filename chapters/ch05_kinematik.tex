@@ -1,0 +1,51 @@
+% =============================================================
+%  ch05_kinematik.tex  --  Kinematik, Dynamik und Trajektorien
+% =============================================================
+
+\chapter{Kinematik, Dynamik und Trajektorien}
+
+\section{Vorwärtskinematik}
+Aus den Gelenkwinkeln $\bm{q}$ die Endeffektor-Pose berechnen. Klassisch über
+die Kette homogener $4\times4$-Transformationen (Denavit-Hartenberg-Parameter).
+Der Rotationsblock jeder Transformation ist eine $3\times3$-Matrix; intern
+äquivalent zur Quaternion-Darstellung.
+
+\section{Inverse Kinematik}
+Aus der gewünschten Pose die Gelenkwinkel finden. Numerisch über die
+\textbf{Jacobi-Matrix} $\bm{J}$, die Gelenkgeschwindigkeiten auf
+Endeffektorgeschwindigkeiten abbildet ($\dot{\bm{x}} = \bm{J}\dot{\bm{q}}$).
+Iterativ:
+\begin{equation}
+\Delta\bm{q} = \bm{J}^{\dagger}\,\bm{e},
+\qquad
+\bm{e} = \begin{pmatrix}\bm{e}_{\text{pos}} \\ \bm{e}_{\text{ori}}\end{pmatrix}
+\end{equation}
+mit Pseudo-Inverser $\bm{J}^\dagger$ (oder Damped-Least-Squares nahe
+Singularitäten). Der \textbf{Orientierungsfehler} $\bm{e}_{\text{ori}}$ wird als
+Vektorteil des Fehlerquaternions $q_{\text{soll}}\otimes q_{\text{ist}}^{-1}$
+gebildet -- Euler-Differenzen sind hier wegen Gimbal Lock unbrauchbar. In
+ROS\,2 löst \textbf{MoveIt\,2} (mit KDL/TracIK) das für dich.
+
+\section{Dynamik}
+Das Bewegungsgesetz eines Roboterarms:
+\begin{equation}
+\bm{M}(\bm{q})\ddot{\bm{q}} + \bm{C}(\bm{q},\dot{\bm{q}})\dot{\bm{q}}
++ \bm{g}(\bm{q}) = \bm{\tau}
+\end{equation}
+$\bm{M}$ = Massenmatrix, $\bm{C}$ = Coriolis/Zentrifugal,
+$\bm{g}$ = Gravitation, $\bm{\tau}$ = Gelenkmomente. Für die Simulation ist
+entscheidend, dass du jedem Link in der URDF korrekte \textbf{Masse und
+Trägheitstensoren} gibst -- sonst rechnet die Physik-Engine Unsinn.
+
+\section{Trajektorienplanung}
+\begin{itemize}
+\item \textbf{Gelenkraum:} Kubische/quintische Polynome oder ein
+  \textbf{trapezförmiges Geschwindigkeitsprofil} (beschleunigen -- konstant --
+  abbremsen) erzeugen ruckarme, ableitungsstetige Verläufe.
+\item \textbf{Kartesischer Raum:} Position linear interpolieren, Orientierung
+  per \textbf{SLERP} (gleichmäßige Winkelgeschwindigkeit). Für glatte
+  Mehrpunktbahnen \textbf{SQUAD}.
+\end{itemize}
+In ROS\,2 transportiert \code{trajectory\_msgs/JointTrajectory} eine Bahn
+(Punkte mit Position/Geschwindigkeit/Zeit), und der
+\code{joint\_trajectory\_controller} fährt sie ab.

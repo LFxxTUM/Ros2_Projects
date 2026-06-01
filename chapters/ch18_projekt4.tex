@@ -1,0 +1,43 @@
+% =============================================================
+%  ch18_projekt4.tex  --  Projekt 4: CAD-Posenerkennung und Greifen
+% =============================================================
+
+\chapter{Projekt 4 -- CAD-basierte Posenerkennung und Greifen}
+
+\textbf{Ziel:} Bauteile per Stereokamera über sich matchende CAD-Modelle
+erkennen, deren 6D-Lage bestimmen und das Greifen daran anpassen.
+
+\section{ROS\,2-Bausteine}
+\begin{longtable}{@{}p{2.6cm}p{12cm}@{}}
+\toprule
+\textbf{Typ} & \textbf{Konkret} \\
+\midrule
+Nodes       & \code{stereo\_camera} $\cdot$
+              \code{part\_detector} (ORB/SIFT-Matching gegen gerenderte
+              CAD-Ansichten \emph{oder} Punktwolke+ICP) $\cdot$
+              \code{pose\_estimator} (\code{solvePnP}/ICP $\rightarrow$ 6D-Pose) $\cdot$
+              \code{moveit2} (Greifplanung) $\cdot$
+              \code{robot\_controller} \\
+Topics/Msgs & \code{vision\_msgs/Detection3DArray} $\cdot$
+              Pose über \code{/tf} \\
+Actions     & MoveIt\,2 \code{MoveGroup} (Planen + Ausführen) \\
+Parameter   & CAD-Modellpfade, Matching-Schwellen, ICP-Iterationen,
+              Greifvorgaben \\
+\bottomrule
+\end{longtable}
+
+\begin{center}
+\begin{tikzpicture}[node distance=5mm and 12mm]
+\node[node] (cam) {/stereo\_camera};
+\node[node,right=of cam] (det) {/part\_detector\\\scriptsize CAD-Matching};
+\node[node,right=of det] (pe)  {/pose\_estimator\\\scriptsize PnP / ICP};
+\node[node,right=of pe]  (mv)  {/moveit2};
+\node[node,below=8mm of mv] (rc) {/robot\_controller};
+\draw[flow] (cam) -- (det);
+\draw[flow] (det) -- (pe);
+\draw[flow] (pe)  -- node[topic,fill=white,inner sep=1pt]{\scriptsize 6D pose (tf)} (mv);
+\draw[flow] (mv)  -- (rc);
+\end{tikzpicture}
+\captionof{figure}{Projekt~4: CAD-Matching $\rightarrow$ 6D-Posenschätzung
+$\rightarrow$ MoveIt\,2-Greifplanung, angepasst an die erkannte Werkstücklage.}
+\end{center}

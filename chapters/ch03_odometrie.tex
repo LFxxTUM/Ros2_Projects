@@ -1,0 +1,22 @@
+% =============================================================
+%  ch03_odometrie.tex  --  Odometrie und Sensorfusion
+% =============================================================
+
+\chapter{Odometrie und Sensorfusion}
+
+\textbf{Odometrie} schätzt die Eigenbewegung aus inkrementellen Sensordaten.
+\begin{itemize}
+\item \textbf{Radodometrie:} Aus Encoder-Ticks und
+  Differentialantriebs-Kinematik die Pose integrieren. Einfach, aber driftet
+  (Schlupf, Rundungsfehler akkumulieren).
+\item \textbf{Visuelle Odometrie (VO):} Bewegung aus der Verfolgung von
+  Bildmerkmalen über aufeinanderfolgende Frames schätzen. Mit Stereokamera
+  bekommst du den Maßstab gratis (Tiefe ist bekannt).
+\item \textbf{Visual-Inertial Odometry (VIO):} VO + IMU per EKF fusioniert --
+  robuster, glatter.
+\end{itemize}
+In ROS\,2 ist \textbf{\code{robot\_localization}} das Standardpaket: ein
+\code{ekf\_node}/\code{ukf\_node} fusioniert mehrere Quellen (Rad-Odom + IMU +
+visuelle Odom) zu einer konsistenten \code{odom}$\rightarrow$\code{base\_link}-Transformation.
+Drift wird später durch SLAM/Loop-Closure korrigiert
+(\code{map}$\rightarrow$\code{odom}).

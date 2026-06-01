@@ -1,0 +1,67 @@
+% =============================================================
+%  ch08_komponenten.tex  --  Komponenten im günstigen Hobby-Bereich
+% =============================================================
+
+\chapter{Komponenten im günstigen Hobby-Bereich}
+
+\begin{infobox}[title=Leitprinzip]
+Fokus liegt nicht auf Elektrotechnik: Wo möglich Module und Plug-and-Play,
+niedrige Kosten. Die Architektur trennt sauber eine
+\textbf{Echtzeit-Motorebene} (Mikrocontroller, nah an den Treibern) von einer
+\textbf{High-Level-Ebene} (PC/Pi mit vollem ROS\,2 für Trajektorie, Vision,
+Kalman).
+\end{infobox}
+
+\section{Schrittmotor und Treiber}
+\begin{longtable}{@{}p{3.6cm}p{4.2cm}p{7.2cm}@{}}
+\toprule
+\textbf{Komponente} & \textbf{Empfehlung} & \textbf{Begründung} \\
+\midrule
+Motor          & NEMA-17 (z.\,B.\ 17HS19) & Standard, günstig, ausreichend Moment mit Getriebe \\
+Treiber        & \textbf{TMC2209} (UART)   & StallGuard4 liefert Lastwert über UART = indirekte Drehmomentschätzung; leise, Stepstick-Format, $\approx$5--10\,\euro \\
+Treiber-Alt.   & TMC2130/5160 (SPI)       & höherer Strom / SPI statt UART \\
+Strom/Spannung & \textbf{INA226}-Modul (I\textsuperscript{2}C) & misst Busspannung + Strom direkt, plug-and-play, $\approx$2\,\euro\ pro Kanal \\
+Closed-Loop (opt.) & MKS SERVO42 / BTT S42B & integrierter Encoder + Treiber, falls echter Regelkreis gewünscht \\
+\bottomrule
+\end{longtable}
+
+\noindent\textbf{Konkret für den Regelungsansatz:} Der TMC2209 im UART-Modus
+gibt \code{SG\_RESULT} (Lastproxy) ohne Zusatzhardware. Willst du
+\emph{zusätzlich} Busspannung und -strom explizit messen, setzt du je Achse ein
+INA226-Modul auf die Treiberversorgung. Beide hängen am selben I\textsuperscript{2}C/UART-Bus
+des Mikrocontrollers.
+
+\section{Recheneinheiten}
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[ESP32 (Motorebene)] Dual-Core, viele PWM/GPIO, FreeRTOS, harte Echtzeit
+  für Schrittgenerierung und das Auslesen von TMC (UART) und INA226
+  (I\textsuperscript{2}C). Entscheidend: \textbf{micro-ROS} bindet den ESP32
+  als vollwertigen ROS\,2-Knoten in den Graphen ein.
+\item[Raspberry Pi (High-Level)] Pi\,4/5 mit Ubuntu kann den vollen
+  ROS\,2-Stack tragen (Trajektorienplanung, Kalman). Der \textbf{Pi Zero} ist
+  dafür zu schwach -- für Vision ungeeignet; nutze ihn höchstens als
+  micro-ROS-Brücke. Vision und schweres Rechnen gehören auf den externen PC.
+\end{description}
+
+\begin{infobox}[title=Empfohlene Arbeitsteilung]
+\textbf{Externer PC} (Ubuntu + ROS\,2): Trajektorienplanung, Stereo-Vision,
+Kalman-Filter, Visualisierung.
+\;$\longleftrightarrow$\; (WLAN/USB) \;$\longleftrightarrow$\;
+\textbf{ESP32} (micro-ROS): empfängt Sollwerte, generiert Schritte, liest
+StallGuard/INA226, publiziert Gelenkzustände. Die Stereokamera hängt per USB
+am PC.
+\end{infobox}
+
+\section{Stereokamera}
+Das ELP-Modell ist eine synchronisierte Doppelobjektiv-USB-Kamera
+(UVC-konform). Sie meldet sich unter Linux als V4L2-Gerät (\code{/dev/video*})
+und liefert in der Regel ein \emph{nebeneinanderliegendes} (side-by-side) Bild
+über eine USB-Verbindung -- die Synchronisierung beider Sensoren ist der
+Vorteil gegenüber zwei Einzelkameras (wichtig für bewegte Objekte wie den Ball).
+In ROS\,2:
+\begin{itemize}
+\item Treiber: \code{v4l2\_camera} oder \code{usb\_cam}.
+\item Side-by-side-Frame in linkes/rechtes Bild splitten (kleiner eigener Knoten,
+  siehe Teil~VI).
+\item Eigene Stereokalibrierung ist Pflicht -- das Modul ist nicht vorkalibriert.
+\end{itemize}

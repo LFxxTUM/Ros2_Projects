@@ -1,0 +1,55 @@
+% =============================================================
+%  ch25_hebelarm.tex  --  Das Hebelarm- und Schwingungsproblem
+% =============================================================
+
+\chapter{Das Hebelarm- und Schwingungsproblem}
+
+Der Arm hängt mit Abstand $L$ unter der X-Achse. Bei harten Beschleunigungen
+zur Zielposition entstehen Reaktionskräfte und -momente, die den Ausleger zum
+Schwingen anregen.
+
+\section{Die Physik}
+Beschleunigt der Schlitten mit $a$, wirkt auf die bewegte Masse $m$ die
+Trägheitskraft $F=m\,a$. Über den Hebelarm $L$ ergibt das am Anbindungspunkt
+ein \textbf{Biegemoment}
+\begin{equation}
+M = F\cdot L = m\,a\,L.
+\end{equation}
+Der Ausleger verhält sich näherungsweise wie ein einseitig eingespannter Balken
+(Kragträger) mit Steifigkeit $k=\dfrac{3EI}{L^3}$ und einer ersten
+\textbf{Eigenfrequenz}
+\begin{equation}
+f_1 = \frac{1}{2\pi}\sqrt{\frac{k}{m_{\text{eff}}}}
+    = \frac{1}{2\pi}\sqrt{\frac{3EI}{m_{\text{eff}}\,L^3}}.
+\end{equation}
+$E$ = E-Modul, $I$ = Flächenträgheitsmoment des Auslegerquerschnitts.
+Wichtig: $f_1$ fällt mit $L^{3/2}$ -- ein längerer Ausleger ist drastisch
+weicher. Anregungsanteile der Bewegung nahe $f_1$ führen zu Resonanz und langem
+Nachschwingen, was die Schlaggenauigkeit ruiniert.
+
+\section{Gegenmaßnahmen}
+\begin{enumerate}
+\item \textbf{Bewegte Masse minimieren:} Motoren rahmenfest (Riemen-/Seilzug
+  zu den Armgelenken, CoreXY-Logik), Arm aus Aluminium/CFK, Schwerpunkt nah an
+  der Achse.
+\item \textbf{Steifigkeit maximieren:} große Stab-/Schienenquerschnitte
+  (gestützte Linearschienen statt dünner Stäbe), Doppelführung, kurzer
+  Ausleger, triangulierter Rahmen. $f_1$ deutlich \emph{über} die
+  Betriebsfrequenzen legen.
+\item \textbf{Ruckbegrenzte Bewegungsprofile (S-Kurve):} sanftes Beschleunigen
+  regt hohe Frequenzen weniger an.
+\item \textbf{Input Shaping / Resonanzkompensation:} der Steuerbefehl wird so
+  vorgeformt, dass die Anregung bei $f_1$ ausgelöscht wird -- genau das, was
+  Bambu/Klipper mit einem Beschleunigungssensor (ADXL345) als ``resonance
+  compensation'' tun. Das ist die wirksamste softwareseitige Maßnahme.
+\item \textbf{Dämpfung:} Strukturdämpfung, ggf.\ ein abgestimmter Tilger
+  (tuned mass damper); Riemenvorspannung erhöhen (Riemendehnung ist Teil der
+  Nachgiebigkeit).
+\end{enumerate}
+
+\begin{infobox}[title=Anknüpfung an den FEM-Hintergrund]
+Bestimme $f_1$ und die Modenformen per \textbf{Modalanalyse} (SolidWorks
+Simulation / FEM). Das liefert dir genau die Frequenz, auf die du das Input
+Shaping abstimmst, und zeigt, welche Strukturteile du versteifen musst. Das
+verbindet FEM-Erfahrung direkt mit der Reglerauslegung.
+\end{infobox}

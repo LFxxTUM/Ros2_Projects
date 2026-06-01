@@ -1,0 +1,51 @@
+% =============================================================
+%  ch26_simulierbarkeit.tex  --  Simulierbarkeit in Gazebo und RViz
+% =============================================================
+
+\chapter{Simulierbarkeit in Gazebo und RViz}
+
+Lassen sich Anfahren der Zielposition, Schlagbewegung und die induzierten
+Kräfte mit Gazebo/RViz abbilden?
+
+\section{Was Gazebo kann -- und was nicht}
+\begin{longtable}{@{}p{7.4cm}p{7.2cm}@{}}
+\toprule
+\textbf{Gazebo bildet ab (Starrkörperdynamik)} & \textbf{Gazebo bildet \emph{nicht} ab} \\
+\midrule
+Anfahren der Zielposition (prismatische + rotatorische Gelenke) & Strukturelle Biegung/Durchbiegung der Stäbe \\
+Schlagbewegung des Arms      & Riemendehnung als kontinuierliche Elastizität \\
+Gelenkmomente/-kräfte (auslesbar) & Modale Resonanz/Eigenschwingung der Struktur \\
+Dynamische Kopplung (Armträgheit reagiert auf Portal) & Rahmenflattern, Mikrovibrationen \\
+Ball-Schläger-Kontakt + Reaktionskräfte & exakte Spin-/Absprungphysik (nur genähert) \\
+Motormoment-Budgetierung      & \\
+\bottomrule
+\end{longtable}
+
+\begin{warnbox}[title=Der Kernpunkt]
+Gazebo behandelt Links als \textbf{starre Körper}. Die Schwingung, die dich
+sorgt, kommt aber großteils aus \emph{struktureller Nachgiebigkeit}
+(Stabbiegung, Riemendehnung, Rahmenflex) -- starre Links biegen sich nicht,
+also zeigt Standard-Gazebo diese Resonanz \emph{nicht}.
+\end{warnbox}
+
+\section{Wege, die Nachgiebigkeit doch abzubilden}
+\begin{itemize}
+\item \textbf{Klumpen-Nachgiebigkeit in Gazebo:} ein steifes Feder-Dämpfer-Gelenk
+  zwischen Segmenten einfügen (Riemendehnung als prismatische Feder, oder ein
+  nachgiebiges Drehgelenk am Auslegerfuß). Das ist eine \emph{Näherung} der
+  ersten Mode, kein vollständiges Modalverhalten.
+\item \textbf{Echte Strukturvibration:} FEM / flexible Mehrkörpersimulation --
+  SolidWorks Simulation (modal), MATLAB \textbf{Simscape Multibody} mit
+  flexiblen Körpern (reduzierte FEM-Modelle), Adams. Co-Simulation mit ROS
+  möglich.
+\item \textbf{RViz:} reine Visualisierung -- zeigt Bewegung und TF, rechnet
+  \emph{keine} Physik. Kräfte kannst du als Marker visualisieren, wenn ein
+  anderer Knoten sie berechnet/publiziert.
+\end{itemize}
+
+\begin{infobox}[title=Empfohlene Aufteilung]
+\textbf{Gazebo} für Regelung, Trajektorientracking, Momentenbudget und
+Ball-Schläger-Kontakt. \textbf{FEM/Simscape} für die strukturelle Resonanz
+($f_1$, Modenformen). Beides verbindet sich über die Input-Shaping-Frequenz:
+FEM liefert $f_1$, der ROS-Regler nutzt es zur Schwingungsunterdrückung.
+\end{infobox}

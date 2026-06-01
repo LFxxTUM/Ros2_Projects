@@ -1,0 +1,29 @@
+% =============================================================
+%  ch09_pcb.tex  --  Optimierungspotenzial für ein eigenes PCB
+% =============================================================
+
+\chapter{Optimierungspotenzial für ein eigenes PCB}
+
+Diese Punkte sind \emph{Erweiterung}, nicht Voraussetzung -- mit Modulen kommst
+du zunächst aus. Für ein späteres eigenes Board:
+\begin{itemize}
+\item \textbf{Treiber integrieren} statt Stepstick-Module: TMC2209 direkt
+  bestücken -- spart Bauhöhe, bessere Thermik über Kupferflächen und Thermovias
+  unter dem Chip.
+\item \textbf{Strom-/Spannungsmessung onboard:} INA-Sensor mit dimensioniertem
+  Shunt je Kanal nahe am Treiber, kurze Kelvin-Anbindung des Shunts.
+\item \textbf{Power-Integrity:} Bulk-Elko plus keramische Stützkondensatoren
+  direkt an jedem Treiber; getrennte Power-/Logik-Masse mit Sternpunkt
+  (Single-Point-Ground).
+\item \textbf{Signalführung:} STEP/DIR bzw.\ UART als kurze, von der Leistung
+  getrennte Leitungen; bei gemischten Pegeln (3{,}3\,V/5\,V) Levelshifter
+  vorsehen.
+\item \textbf{Schutz:} ESD-Dioden an USB- und Encoder-Leitungen; Verpolschutz;
+  Freilauf-/EMV-Betrachtung der Motorleitungen.
+\item \textbf{Konnektivität:} JST-Stecker für Motoren/Encoder, Schraubklemme
+  für die Versorgung; optional CAN-Transceiver für saubere
+  Mehrachs-Verkettung statt vieler UARTs.
+\item \textbf{Onboard-Encoder-Interface} für späteren Closed-Loop-Betrieb (FOC).
+\item \textbf{Thermik:} Thermopad/Kühlfläche unter den Treibern, definierter
+  Luftstrom.
+\end{itemize}

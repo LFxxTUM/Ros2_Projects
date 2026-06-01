@@ -1,0 +1,115 @@
+% =============================================================
+%  ch01_ros2_konzepte.tex  --  ROS 2: Konzepte und Architektur
+% =============================================================
+
+\chapter{ROS\,2 -- Konzepte und Architektur}
+
+\section{Warum ROS\,2 und nicht ROS\,1}
+ROS\,2 ersetzt den zentralen \code{rosmaster} von ROS\,1 durch eine dezentrale
+Discovery über \textbf{DDS} (Data Distribution Service), einen Industriestandard
+aus Luft- und Raumfahrt. Daraus folgen die für deine Projekte relevanten
+Eigenschaften: kein Single-Point-of-Failure, Multi-Maschinen-Betrieb über das
+Netzwerk ohne Master, konfigurierbare Echtzeit-/Zuverlässigkeitsgarantien (QoS)
+und ein einheitliches API in C++ (\code{rclcpp}) und Python (\code{rclpy}).
+ROS\,1 (Noetic) ist seit Mai 2025 End-of-Life; alle Neuprojekte gehören auf
+ROS\,2.
+
+\section{Die fünf Kommunikationsprimitive}
+Das gesamte Verhalten eines ROS\,2-Systems lässt sich auf fünf Bausteine
+zurückführen. Sie zu verstehen ist die halbe Miete -- der Rest ist Anwendung.
+
+\begin{description}[leftmargin=1.6em,style=nextline]
+\item[Node (Knoten)] Eine Recheneinheit mit genau einer Verantwortung --
+  z.\,B.\ \code{ball\_detector}, \code{trajectory\_controller}. Knoten
+  kommunizieren ausschließlich über die vier folgenden Mechanismen, nie direkt.
+\item[Topic (Thema)] Asynchroner Publish/Subscribe-Kanal, many-to-many. Ein
+  Publisher sendet \emph{Nachrichten} (eines \code{.msg}-Typs), beliebig viele
+  Subscriber empfangen sie. Geeignet für kontinuierliche Datenströme: Bilder,
+  Gelenkzustände, Odometrie. \emph{Feuern und vergessen} -- der Sender weiß
+  nicht, wer zuhört.
+\item[Service (Dienst)] Synchroner Request/Response, one-to-one. Ein Client
+  schickt eine Anfrage, ein Server antwortet genau einmal. Für kurze,
+  abgeschlossene Aktionen: ``Schalte Controller um'', ``Gib aktuelle
+  Kalibrierung zurück''. Blockierend.
+\item[Action (Aktion)] Für lange, zielgerichtete Aufgaben mit
+  Zwischen-Feedback und Abbruchmöglichkeit. Technisch aus Topics + Services
+  zusammengesetzt: \emph{Goal} (Ziel senden), \emph{Feedback} (Fortschritt),
+  \emph{Result} (Endergebnis). Der Paradefall für ``fahre diese Trajektorie
+  ab'' -- du willst Fortschritt sehen und abbrechen können.
+\item[Parameter] Pro Knoten gehaltene Konfigurationswerte (Gelenklimits,
+  PID-Gains, Getriebeübersetzung), zur Laufzeit les- und setzbar, deklariert
+  beim Knotenstart.
+\end{description}
+
+\begin{infobox}[title=Faustregel zur Wahl]
+Kontinuierlicher Datenstrom $\rightarrow$ \textbf{Topic}.
+Kurze Frage mit sofortiger Antwort $\rightarrow$ \textbf{Service}.
+Langer Auftrag mit Fortschritt/Abbruch (Trajektorie, Navigation, Greifen)
+$\rightarrow$ \textbf{Action}.
+Statische Konfiguration $\rightarrow$ \textbf{Parameter}.
+\end{infobox}
+
+\section{QoS -- Quality of Service}
+Weil DDS darunterliegt, hat jedes Topic eine QoS-Konfiguration. Die wichtigsten
+Profile:
+\begin{itemize}
+\item \textbf{Reliability:} \code{RELIABLE} (jede Nachricht garantiert,
+  Wiederübertragung) vs.\ \code{BEST\_EFFORT} (verlustbehaftet, aber
+  latenzarm). Sensorbilder fahren oft \code{BEST\_EFFORT}, Steuerbefehle
+  \code{RELIABLE}.
+\item \textbf{Durability:} \code{TRANSIENT\_LOCAL} hält die letzte Nachricht für
+  später startende Subscriber vor (typisch für \code{/map}, statische TF).
+\item \textbf{History/Depth:} Puffergröße.
+\end{itemize}
+Eine häufige Fehlerquelle: Publisher und Subscriber mit \emph{inkompatiblen}
+QoS-Profilen ``sehen'' sich nicht. Bei stummen Topics ist das der erste Verdacht.
+
+\section{Workspace, Pakete, Build}
+ROS\,2-Code lebt in einem \textbf{Workspace} (Verzeichnis mit \code{src/}).
+Darin liegen \textbf{Pakete}. Gebaut wird mit \textbf{colcon}.
+\begin{lstlisting}[style=bash,caption={Workspace anlegen und bauen}]
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws
+# ... Pakete nach src/ ...
+rosdep install --from-paths src --ignore-src -y   # Abhaengigkeiten
+colcon build --symlink-install                    # bauen
+source install/setup.bash                         # Overlay aktivieren
+\end{lstlisting}
+Python-Pakete nutzen \code{ament\_python} (\code{setup.py}), C++-Pakete
+\code{ament\_cmake} (\code{CMakeLists.txt}). Beide haben eine
+\code{package.xml} mit Metadaten und Abhängigkeiten.
+
+\section{TF2 -- der Transformationsbaum}
+Jeder Roboter ist ein Baum von Koordinatensystemen (Frames):
+\code{map} $\rightarrow$ \code{odom} $\rightarrow$ \code{base\_link}
+$\rightarrow$ \code{camera\_link} $\rightarrow \dots$.
+\textbf{TF2} verwaltet diese zeitgestempelten Transformationen, sodass du
+jederzeit fragen kannst ``Wo ist der Ball im \code{base\_link}-Frame?'', obwohl
+er in \code{camera\_link} gemessen wurde. Rotationen werden hier als
+\textbf{Quaternionen} gespeichert (\code{geometry\_msgs/Quaternion}) -- genau aus
+den Gründen, die wir besprochen haben: kein Gimbal Lock, kompakt, sauber
+interpolierbar. Konventionen sind in REP-103 (Einheiten, rechtshändig, $x$
+vorne, $z$ oben) und REP-105 (Frame-Namen) festgelegt.
+
+\section{Wichtige CLI-Werkzeuge}
+\begin{longtable}{@{}p{6.2cm}p{9cm}@{}}
+\toprule
+\textbf{Befehl} & \textbf{Zweck} \\
+\midrule
+\code{ros2 run <pkg> <node>}       & Einen Knoten starten \\
+\code{ros2 launch <pkg> <file>}    & Mehrere Knoten + Konfiguration starten \\
+\code{ros2 topic list / echo / hz} & Topics auflisten, Inhalt sehen, Rate messen \\
+\code{ros2 node list / info}       & Knoten und ihre Schnittstellen \\
+\code{ros2 service call}           & Dienst manuell aufrufen \\
+\code{ros2 action send\_goal}      & Aktion manuell starten \\
+\code{ros2 param get / set / dump} & Parameter lesen/schreiben/sichern \\
+\code{rqt\_graph}                  & Knoten-Topic-Graph visualisieren \\
+\code{rviz2}                       & 3D-Visualisierung (\emph{kein} Simulator!) \\
+\code{ros2 bag record / play}      & Datenströme aufzeichnen/abspielen \\
+\midrule
+\end{longtable}
+
+\begin{warnbox}[title=Häufige Begriffsverwechslung]
+\textbf{RViz2} ist ein \emph{Visualisierer} (zeigt Daten an), \textbf{Gazebo}
+ist ein \emph{Simulator} (erzeugt Daten per Physik). Du wirst beide gleichzeitig
+nutzen: Gazebo simuliert, RViz2 zeigt an.
+\end{warnbox}

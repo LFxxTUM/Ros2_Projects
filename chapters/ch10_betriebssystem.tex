@@ -1,0 +1,40 @@
+% =============================================================
+%  ch10_betriebssystem.tex  --  Betriebssystem und Distribution
+% =============================================================
+
+\chapter{Betriebssystem und Distribution}
+
+\section{Distributionswahl (Stand Juni 2026)}
+ROS\,2-Releases erscheinen jährlich; relevant sind die LTS-Versionen. Für ein
+langfristiges Lernprojekt:
+\begin{longtable}{@{}p{3.4cm}p{2.6cm}p{2.4cm}p{6cm}@{}}
+\toprule
+\textbf{Distribution} & \textbf{Ubuntu} & \textbf{Support bis} & \textbf{Eignung} \\
+\midrule
+\textbf{Jazzy Jalisco} & 24.04 & 2029 (LTS) & \textbf{Empfehlung}: reif, viele Tutorials, von Isaac Sim unterstützt \\
+Humble Hawksbill       & 22.04 & 2027 (LTS) & meiste Tutorials, etwas älter \\
+Kilted Kaiju           & 24.04 & $\sim$2026 & non-LTS, kurzer Support -- meiden \\
+Lyrical Luth           & 24.04 & 2031 (LTS) & brandneu (Mai 2026), Ökosystem noch nicht nachgezogen \\
+\bottomrule
+\end{longtable}
+
+\begin{infobox}[title=Empfehlung]
+\textbf{Ubuntu 24.04 LTS + ROS\,2 Jazzy Jalisco.} LTS bis 2029, ausgereifte
+Tutorials, von Gazebo Harmonic und NVIDIA Isaac Sim unterstützt. Lyrical Luth
+ist erst $\sim$10 Tage alt -- für den Einstieg zu frisch.
+\end{infobox}
+
+\section{VM, Dual-Boot oder WSL2?}
+\begin{warnbox}[title=Wichtige Einschränkung bei der VM]
+Eine VM (VirtualBox/VMware) ist für die \emph{ROS\,2-Grundlagen} in Ordnung,
+aber \textbf{Gazebo Harmonic und Isaac Sim brauchen GPU-Beschleunigung}, die in
+VMs schlecht durchgereicht wird -- 3D-Simulation läuft dort zäh. Optionen,
+nach Eignung:
+\begin{enumerate}
+\item \textbf{Natives Ubuntu (Dual-Boot)} -- beste Leistung, empfohlen sobald du
+  simulierst.
+\item \textbf{WSL2 unter Windows} -- inzwischen mit GPU-Zugriff (WSLg), guter
+  Kompromiss.
+\item \textbf{VM} -- nur für CLI/Tutorials; für schwere Simulation ungeeignet.
+\end{enumerate}
+\end{warnbox}

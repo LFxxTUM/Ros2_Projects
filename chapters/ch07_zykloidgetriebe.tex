@@ -1,0 +1,21 @@
+% =============================================================
+%  ch07_zykloidgetriebe.tex  --  Zykloidgetriebe
+% =============================================================
+
+\chapter{Zykloidgetriebe}
+
+Ein Zykloidgetriebe erzeugt auf kompaktem Bauraum eine hohe Untersetzung bei
+geringem Spiel (Backlash) und hoher Stoßfestigkeit -- ideal als ``letzte
+Stufe'' vor dem Robotergelenk. Eine exzentrisch gelagerte Zykloidscheibe mit
+$n$ Nocken wälzt in einem Ring mit $N$ Bolzen ab. Die Untersetzung ist
+\begin{equation}
+i = \frac{N}{N - n}.
+\end{equation}
+Mit einer Nockendifferenz von eins ($N - n = 1$) folgt $i = N$: 11 Ringbolzen
+und eine 10-Nocken-Scheibe ergeben 11:1.
+
+Für die Simulation ist die innere Mechanik irrelevant -- das Getriebe wird als
+\emph{ein} angetriebenes Gelenk mit Übersetzung modelliert (siehe
+Teil~IV, ros2\_control-Transmission). Wichtig für die reale Auslegung: das
+übertragbare Ausgangsmoment, die Steifigkeit und das Restspiel, die du später
+in die Gelenklimits einträgst.

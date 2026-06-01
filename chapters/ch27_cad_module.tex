@@ -1,0 +1,102 @@
+% =============================================================
+%  ch27_cad_module.tex  --  CAD-Module und URDF (Gantry)
+% =============================================================
+
+\chapter{CAD-Module und URDF}
+
+\section{Notwendige CAD-Module mit Designanforderungen}
+\begin{longtable}{@{}p{3.0cm}p{4.4cm}p{7.2cm}@{}}
+\toprule
+\textbf{Modul} & \textbf{Funktion} & \textbf{Designanforderung} \\
+\midrule
+Rahmen / Basis         & trägt X-Achse + X-Motor, ortsfest & sehr steif (Alu-Profil 3030/4040), trianguliert, verankert; URDF-Wurzel \\
+X-Achse                & horizontale Verfahrachse über Plattenbreite & Hohlstahl-Stäbe + GT2-Riemen; Motor rahmenfest; Stablänge $>1{,}6\,$m \\
+X-Schlitten            & trägt + verfährt die Z-Achse & leicht aber biegesteif; Stababstand $=$ Z-Hub \\
+Z-Achse                & vertikale Verfahrachse & gleiches Prinzip; Hub $=$ X-Stababstand \\
+Z-Schlitten            & trägt Y/Arm & geringe Masse (bewegte Masse!) \\
+Y-Achse (optional)     & Tiefenzustellung & nur falls nötig; sonst starrer Ausleger \\
+Armbasis               & Anbindung Arm an Schlitten & steife Einspannung; kurzer Hebel $L$; hält 1.\,Armmotor \\
+Armglieder (2--3 DOF)  & Schwung + Schlägerwinkel & leicht (Alu/CFK); Motoren basisnah; Reichweite + Geschwindigkeit für Schlag \\
+Schlägereinspannung    & hält den Schläger & starr, definierte Schlägerebene, geringe Masse \\
+Endeffektor-Frame      & Schlagpunkt + Normale & TF-Frame: Schlägerflächenmitte + Flächennormale \\
+Kleinteile             & Motorhalter, Riemenspanner, Idler, Endstop-Halter & druckbar/CNC; auf Steifigkeit der Lastpfade achten \\
+\bottomrule
+\end{longtable}
+
+\section{Kinematische Kette}
+\begin{center}
+\begin{tikzpicture}[node distance=3.5mm and 7mm,every node/.style={font=\scriptsize}]
+\node[node] (w)  {world};
+\node[node,right=of w]  (b)  {base\_link};
+\node[node,right=of b]  (xc) {x\_carriage};
+\node[node,right=of xc] (zc) {z\_carriage};
+\node[node,right=of zc] (ab) {arm\_base};
+\node[node,right=of ab] (l1) {link1};
+\node[node,below=5mm of l1] (l2) {link2};
+\node[node,left=of l2]  (pad) {paddle};
+\draw[flow] (w) --node[above,font=\tiny]{fixed}(b);
+\draw[flow] (b) --node[above,font=\tiny,align=center]{joint\_x\\prism.}(xc);
+\draw[flow] (xc)--node[above,font=\tiny,align=center]{joint\_z\\prism.}(zc);
+\draw[flow] (zc)--node[above,font=\tiny]{[joint\_y]}(ab);
+\draw[flow] (ab)--node[above,font=\tiny,align=center]{arm1\\rev.}(l1);
+\draw[flow] (l1)--node[right,font=\tiny]{arm2 rev.}(l2);
+\draw[flow] (l2)--node[above,font=\tiny]{wrist rev.}(pad);
+\end{tikzpicture}
+\captionof{figure}{Kinematische Kette: drei (optional vier) Linear-/Drehübergänge
+bis zur Armbasis, dann der Schlagarm bis zum Schläger.}
+\end{center}
+
+\section{URDF/Xacro-Gerüst}
+\begin{lstlisting}[style=xml,caption={Gantry + Schlagarm als URDF (gekürzt)}]
+<!-- Wurzel: Rahmen fest mit der Welt -->
+<link name="base_link"> <!-- inertial/visual/collision --> </link>
+
+<!-- X-Achse: linear ueber die Plattenbreite -->
+<joint name="joint_x" type="prismatic">
+  <parent link="base_link"/> <child link="x_carriage"/>
+  <origin xyz="0 0 1.0" rpy="0 0 0"/>
+  <axis xyz="1 0 0"/>
+  <limit lower="0" upper="1.5" effort="60" velocity="3.0"/>
+</joint>
+<link name="x_carriage"> <!-- traegt die Z-Achse --> </link>
+
+<!-- Z-Achse: linear vertikal, Hub = X-Stababstand -->
+<joint name="joint_z" type="prismatic">
+  <parent link="x_carriage"/> <child link="z_carriage"/>
+  <axis xyz="0 0 1"/>
+  <limit lower="-0.4" upper="0.0" effort="50" velocity="2.5"/>
+</joint>
+<link name="z_carriage"> ... </link>
+
+<!-- Armbasis (Y optional als prismatic dazwischen) -->
+<joint name="joint_arm_base" type="fixed">
+  <parent link="z_carriage"/> <child link="arm_base"/>
+  <origin xyz="0 0.05 0" rpy="0 0 0"/>
+</joint>
+<link name="arm_base"> ... </link>
+
+<!-- Schlagarm -->
+<joint name="joint_arm1" type="revolute">
+  <parent link="arm_base"/> <child link="link1"/>
+  <axis xyz="0 1 0"/>
+  <limit lower="-2.0" upper="2.0" effort="8" velocity="12"/>
+</joint>
+<link name="link1"> ... </link>
+<!-- joint_arm2 (revolute), joint_wrist (revolute) analog -->
+
+<!-- Schlaeger-Endeffektor -->
+<joint name="joint_paddle" type="fixed">
+  <parent link="link2"/> <child link="paddle"/>
+  <origin xyz="0 0 0.12" rpy="0 0 0"/>
+</joint>
+<link name="paddle"> ... </link>
+\end{lstlisting}
+
+\begin{infobox}[title=Riemenübersetzung der Linearachsen]
+Eine prismatische Riemenachse wandelt Motordrehung in Linearweg: \emph{Weg pro
+Umdrehung} $=$ Zähnezahl $\times$ Riementeilung. Ein 20-Zahn-GT2-Rad (Teilung
+2\,mm) ergibt $20\times2=40\,$mm/Umdrehung. Mit $200\times16$ Microsteps folgt
+eine Auflösung von $40/3200=0{,}0125\,$mm/Microstep. Diese Umrechnung
+Motor$\leftrightarrow$mm gehört ins Hardware-Interface; in der URDF stehen am
+Joint die \emph{linearen} Limits.
+\end{infobox}

@@ -1,0 +1,45 @@
+% =============================================================
+%  ch19_kamera_anbindung.tex  --  Kamera anbinden, Frame splitten
+% =============================================================
+
+\chapter{Kamera anbinden, Frame splitten}
+
+Die synchronisierte ELP-Kamera liefert ein side-by-side-Bild. Erst den Treiber
+starten, dann links/rechts trennen.
+\begin{lstlisting}[style=bash,caption={Treiber starten und Topics prüfen}]
+ros2 run v4l2_camera v4l2_camera_node \
+  --ros-args -p video_device:=/dev/video0 \
+             -p image_size:="[2560,720]"
+ros2 topic list                          # /image_raw sollte erscheinen
+ros2 run rqt_image_view rqt_image_view   # Bild ansehen
+\end{lstlisting}
+
+\begin{lstlisting}[style=py,caption={Knoten: side-by-side Frame in /left und /right splitten}]
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+
+class StereoSplitter(Node):
+    def __init__(self):
+        super().__init__('stereo_splitter')
+        self.bridge = CvBridge()
+        self.pub_l = self.create_publisher(Image, '/left/image_raw', 10)
+        self.pub_r = self.create_publisher(Image, '/right/image_raw', 10)
+        self.create_subscription(Image, '/image_raw', self.cb, 10)
+
+    def cb(self, msg):
+        frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+        w = frame.shape[1] // 2
+        left, right = frame[:, :w], frame[:, w:]
+        hdr = msg.header  # keep timestamp so stereo stays synchronized
+        lm = self.bridge.cv2_to_imgmsg(left,  'bgr8'); lm.header = hdr
+        rm = self.bridge.cv2_to_imgmsg(right, 'bgr8'); rm.header = hdr
+        self.pub_l.publish(lm)
+        self.pub_r.publish(rm)
+
+def main():
+    rclpy.init()
+    rclpy.spin(StereoSplitter())
+    rclpy.shutdown()
+\end{lstlisting}
