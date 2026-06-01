@@ -44,3 +44,105 @@ Resonanzen des realen Steppers, exakte Kontaktdynamik (Ballspin/-absprung sind
 Näherungen), reale Latenzen und Zeitverhalten. Diese Effekte treten erst auf
 der echten Hardware zutage.
 \end{infobox}
+
+% =============================================================
+\section{MuJoCo und Isaac Sim im Detail}
+Zwei Werkzeuge der obigen Tabelle verdienen eine genauere Betrachtung, weil sie
+in der modernen Robotik -- besonders im Lernen von Regelungen
+(\emph{Reinforcement Learning}, RL) und in der Wahrnehmung -- eine
+Sonderstellung einnehmen. Sie lösen Probleme, an denen Gazebo als
+Allzweck-Simulator an seine Grenzen stößt: \textbf{MuJoCo} bei der schnellen,
+präzisen Kontaktdynamik, \textbf{Isaac Sim} beim photorealistischen Rendern und
+beim massiv parallelen GPU-Training.
+
+\subsection{MuJoCo -- Multi-Joint dynamics with Contact}
+\textbf{MuJoCo} (\emph{Multi-Joint dynamics with Contact}) ist eine
+quelloffene Physik-Engine, ursprünglich 2012 von Emanuel Todorov vorgestellt
+\cite{todorov2012mujoco} und seit 2021 von Google DeepMind entwickelt und unter
+Apache-2.0 frei verfügbar \cite{mujoco_docs}. Ihr Markenzeichen ist ein
+\textbf{stabiler, weicher Kontaktlöser} (konvexe Optimierung pro Zeitschritt),
+der kontaktreiche Vorgänge -- Greifen, Laufen, Anschlagen -- numerisch stabil
+und schnell rechnet.
+
+\begin{itemize}
+\item \textbf{Stärken:} sehr schnelle und genaue Dynamik (oft schneller als
+  Echtzeit, hunderte bis tausende Schritte/s), differenzierbare Physik,
+  analytisch saubere Gelenk-/Sehnenmodelle, exzellent für Regelungs- und
+  RL-Forschung. Mit \textbf{MJX} läuft MuJoCo über JAX auf der GPU und
+  simuliert tausende Welten parallel.
+\item \textbf{Schwächen:} \emph{kein} photorealistisches Rendering (einfacher
+  OpenGL-Viewer), weniger fertige Sensor-Plugins als Gazebo, Modelle in eigenem
+  \code{MJCF}-XML (URDF-Import möglich, aber oft mit Nacharbeit).
+\item \textbf{Robotik-Relevanz:} De-facto-Standard im RL-Benchmarking
+  (\code{Gymnasium}/\code{dm\_control}), Lokomotion vierbeiniger Roboter,
+  geschickte Manipulation, Modellprädiktive Regelung (MPC). Wenn die
+  \emph{Kontaktphysik} und die \emph{Trainingsgeschwindigkeit} zählen, ist
+  MuJoCo erste Wahl.
+\end{itemize}
+
+\subsection{NVIDIA Isaac Sim -- photorealistisch und GPU-parallel}
+\textbf{Isaac Sim} ist NVIDIAs Robotik-Simulator auf Basis der
+\textbf{Omniverse}-Plattform und des \code{USD}-Szenenformats
+\cite{isaacsim_docs}. Die Physik liefert \textbf{PhysX\,5} (GPU-beschleunigt),
+das Rendering nutzt \textbf{RTX-Raytracing} -- also physikalisch plausibles
+Licht, Schatten und Materialien.
+
+\begin{itemize}
+\item \textbf{Stärken:} \emph{photorealistische} Kamerabilder, exzellente
+  Erzeugung synthetischer Trainingsdaten (\emph{Synthetic Data}, inkl.\
+  automatischer Labels: Segmentierung, Bounding-Boxes, Tiefe), \emph{Domain
+  Randomization} für robuste Vision-Modelle, GPU-parallele Physik für
+  großskaliges RL über \textbf{Isaac Lab} \cite{mittal2023isaaclab}.
+\item \textbf{Schwächen:} braucht eine starke NVIDIA-RTX-GPU (VRAM-hungrig),
+  hohe Einstiegshürde, große Installation; weniger ``leichtgewichtig'' als
+  Gazebo oder MuJoCo für schnelle Iteration.
+\item \textbf{Robotik-Relevanz:} überall dort, wo das \emph{Aussehen} der Szene
+  entscheidend ist -- Training von Objekterkennung/Pose-Schätzung, Sim-to-Real
+  für kamerabasierte Politiken, digitale Zwillinge ganzer Fertigungszellen.
+\end{itemize}
+
+% =============================================================
+\section{Lassen sie sich integriert einsetzen?}
+\textbf{Ja -- aber meist arbeitsteilig, nicht als ein gemeinsamer
+Simulationskern.} Beide sprechen ROS\,2, sodass sie sich in dieselbe Knoten- und
+Topic-Architektur einfügen wie Gazebo. Der gemeinsame Nenner ist wieder
+\code{ros2\_control} (vgl.\ das folgende Kapitel zur Sim-Real-Trennung): die
+High-Level-Logik bleibt identisch, nur die unterste Schicht -- der Simulator
+hinter dem Hardware-Interface -- wird getauscht.
+
+\begin{longtable}{@{}p{3.0cm}p{5.4cm}p{6.6cm}@{}}
+\toprule
+\textbf{Werkzeug} & \textbf{ROS\,2-Anbindung} & \textbf{Typische Rolle im Workflow} \\
+\midrule
+Gazebo Harmonic & \code{ros\_gz}-Bridge, \code{gz\_ros2\_control} & Allround-Integrationstest, Sensorik, Nav2/MoveIt2 \\
+MuJoCo          & \code{mujoco\_ros2\_control}, eigene Bridges    & Regler-/RL-Training, Kontaktdynamik, MPC \\
+Isaac Sim       & natives \code{ROS\,2-Bridge}-Extension         & Vision-Trainingsdaten, photorealistische Pose-Schätzung, RL via Isaac Lab \\
+\bottomrule
+\end{longtable}
+
+\noindent Der heute verbreitete \textbf{kombinierte Workflow} sieht so aus:
+\begin{enumerate}
+\item \textbf{Politik/Regler lernen} -- massiv parallel in \textbf{Isaac Lab}
+  (auf Isaac Sim) oder in \textbf{MuJoCo/MJX} auf der GPU. Hier zählen
+  Geschwindigkeit und Kontaktphysik, nicht das Aussehen.
+\item \textbf{Wahrnehmung trainieren} -- photorealistische, automatisch
+  gelabelte Bilder aus \textbf{Isaac Sim} für die Objekt-/Pose-Erkennung
+  (Domain Randomization gegen den Sim-to-Real-Gap).
+\item \textbf{Integrieren und gegentesten} -- die fertigen Knoten im
+  \textbf{Gazebo}-Allroundmodell oder direkt am realen Roboter über
+  \code{ros2\_control} verifizieren.
+\end{enumerate}
+
+\begin{infobox}[title=Einordnung für dieses Projekt]
+Für den Stepper- und Tischtennisroboter ist \textbf{Gazebo Harmonic die
+praktische Basis}: Kinematik, Sensorik, Kontakt Ball/Schläger, ros2\_control.
+\textbf{MuJoCo} lohnt sich, falls die
+\emph{Schlag-/Kontaktdynamik} oder eine \emph{gelernte Schlagpolitik}
+(RL) genauer untersucht werden soll -- es rechnet kontaktreiche Vorgänge
+schneller und stabiler. \textbf{Isaac Sim} wird relevant, wenn die
+\emph{Ballerkennung} mit photorealistischen, gelabelten Bildern trainiert
+werden soll, statt sie nur an realen Kamerabildern abzustimmen. Beide setzen
+voraus: MuJoCo profitiert von einer GPU (MJX), Isaac Sim \emph{erfordert} eine
+starke NVIDIA-RTX-GPU -- das ist die wichtigste Hürde gegenüber dem leichten
+Gazebo-Setup.
+\end{infobox}

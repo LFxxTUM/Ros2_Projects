@@ -16,5 +16,94 @@
   {}
 \endgroup
 
-\datalist[entry]{none/global//global/global/global}\enddatalist
+\datalist[entry]{none/global//global/global/global}
+  \entry{todorov2012mujoco}{inproceedings}{}{}
+    \name{author}{3}{}{%
+      {{hash=TE}{%
+         family={Todorov},
+         familyi={T\bibinitperiod},
+         given={Emanuel},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=ET}{%
+         family={Erez},
+         familyi={E\bibinitperiod},
+         given={Tom},
+         giveni={T\bibinitperiod},
+      }}%
+      {{hash=TY}{%
+         family={Tassa},
+         familyi={T\bibinitperiod},
+         given={Yuval},
+         giveni={Y\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{TEETTY1}
+    \strng{fullhash}{TEETTY1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{IEEE/RSJ International Conference on Intelligent Robots
+  and Systems (IROS)}
+    \field{pages}{5026\bibrangedash 5033}
+    \field{title}{{MuJoCo}: A physics engine for model-based control}
+    \field{year}{2012}
+  \endentry
+
+  \entry{mujoco_docs}{misc}{}{}
+    \name{author}{1}{}{%
+      {{hash=G}{%
+         family={{Google DeepMind}},
+         familyi={G\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{G1}
+    \strng{fullhash}{G1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{title}{{MuJoCo Documentation}}
+    \verb{url}
+    \verb https://mujoco.readthedocs.io/
+    \endverb
+    \field{year}{2024}
+  \endentry
+
+  \entry{isaacsim_docs}{misc}{}{}
+    \name{author}{1}{}{%
+      {{hash=N}{%
+         family={{NVIDIA}},
+         familyi={N\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{N1}
+    \strng{fullhash}{N1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{title}{{NVIDIA Isaac Sim Documentation}}
+    \verb{url}
+    \verb https://docs.isaacsim.omniverse.nvidia.com/
+    \endverb
+    \field{year}{2024}
+  \endentry
+
+  \entry{mittal2023isaaclab}{inproceedings}{}{}
+    \true{moreauthor}
+    \true{morelabelname}
+    \name{author}{1}{}{%
+      {{hash=MM}{%
+         family={Mittal},
+         familyi={M\bibinitperiod},
+         given={Mayank},
+         giveni={M\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{MM+1}
+    \strng{fullhash}{MM+1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{IEEE Robotics and Automation Letters (RA-L)}
+    \field{title}{{Orbit}: A Unified Simulation Framework for Interactive Robot
+  Learning Environments}
+    \field{year}{2023}
+  \endentry
+\enddatalist
 \endinput
