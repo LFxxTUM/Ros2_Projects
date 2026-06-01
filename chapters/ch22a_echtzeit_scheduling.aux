@@ -1,19 +1,23 @@
 \relax 
 \providecommand\hyper@newdestlabel[2]{}
-\gdef \LT@xx {\LT@entry 
-    {1}{91.35826pt}\LT@entry 
-    {1}{137.19194pt}\LT@entry 
-    {1}{210.85974pt}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {29}CAD-Module und URDF}{58}{chapter.29}\protected@file@percent }
+\gdef \LT@xv {\LT@entry 
+    {1}{176.71652pt}\LT@entry 
+    {1}{97.35826pt}\LT@entry 
+    {1}{148.26378pt}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {24}Echtzeit-Stereoverarbeitung: Scheduling, Frame-Dropping und Zustandsautomat}{45}{chapter.24}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {section}{\numberline {29.1}Notwendige CAD-Module mit Designanforderungen}{58}{section.29.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {29.2}Kinematische Kette}{58}{section.29.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {29.1}{\ignorespaces Kinematische Kette: drei (optional vier) Linear-/Drehübergänge bis zur Armbasis, dann der Schlagarm bis zum Schläger.}}{58}{figure.29.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {29.3}URDF/Xacro-Gerüst}{58}{section.29.3}\protected@file@percent }
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {29.1}{\ignorespaces Gantry + Schlagarm als URDF (gekürzt)}}{59}{lstlisting.29.1}\protected@file@percent }
-\@setckpt{chapters/ch27_cad_module}{
-\setcounter{page}{60}
+\@writefile{toc}{\contentsline {section}{\numberline {24.1}Das Zeitbudget eines Frames}{45}{section.24.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {24.2}Frame-Dropping: DDS macht die Arbeit}{46}{section.24.2}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {24.1}{\ignorespaces QoS für Bild-Topics: nur der neueste Frame zählt}}{46}{lstlisting.24.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {24.2}{\ignorespaces Stale-Gating: Frame anhand seines Alters verwerfen}}{46}{lstlisting.24.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {24.3}Scheduling: Executor und Callback-Gruppen}{46}{section.24.3}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {24.3}{\ignorespaces Prädiktion und Detektion in getrennten Gruppen, parallel ausgeführt}}{46}{lstlisting.24.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {24.4}Ablauflogik als Zustandsautomat}{47}{section.24.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {24.1}{\ignorespaces Zustandsautomat des Balltrackers. Die Stereo-Detektion treibt die Übergänge; die Prädiktion läuft zustandsübergreifend im eigenen Timer weiter.}}{47}{figure.24.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {24.4}{\ignorespaces Zustandsautomat als Enum -- Entscheidung getrennt vom Bild-Callback}}{48}{lstlisting.24.4}\protected@file@percent }
+\@setckpt{chapters/ch22a_echtzeit_scheduling}{
+\setcounter{page}{49}
 \setcounter{equation}{0}
 \setcounter{enumi}{5}
 \setcounter{enumii}{0}
@@ -21,9 +25,9 @@
 \setcounter{enumiv}{0}
 \setcounter{footnote}{0}
 \setcounter{mpfootnote}{0}
-\setcounter{part}{7}
-\setcounter{chapter}{29}
-\setcounter{section}{3}
+\setcounter{part}{6}
+\setcounter{chapter}{24}
+\setcounter{section}{4}
 \setcounter{subsection}{0}
 \setcounter{subsubsection}{0}
 \setcounter{paragraph}{0}
@@ -31,18 +35,18 @@
 \setcounter{figure}{1}
 \setcounter{table}{1}
 \setcounter{parentequation}{0}
-\setcounter{LT@tables}{20}
+\setcounter{LT@tables}{15}
 \setcounter{LT@chunks}{1}
 \setcounter{caption@flags}{2}
 \setcounter{continuedfloat}{0}
-\setcounter{lstnumber}{43}
+\setcounter{lstnumber}{30}
 \setcounter{section@level}{1}
-\setcounter{Item}{30}
+\setcounter{Item}{25}
 \setcounter{Hfootnote}{0}
-\setcounter{bookmark@seq@number}{113}
+\setcounter{bookmark@seq@number}{93}
 \setcounter{tcbbreakpart}{1}
 \setcounter{tcblayer}{0}
-\setcounter{tcolorbox@number}{23}
+\setcounter{tcolorbox@number}{17}
 \setcounter{tcbrastercolumn}{1}
 \setcounter{tcbrasterrow}{1}
 \setcounter{tcbrasternum}{1}
@@ -162,5 +166,5 @@
 \setcounter{smartand}{1}
 \setcounter{bbx:relatedcount}{0}
 \setcounter{bbx:relatedtotal}{0}
-\setcounter{lstlisting}{1}
+\setcounter{lstlisting}{4}
 }

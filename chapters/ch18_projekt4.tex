@@ -41,3 +41,87 @@ Parameter   & CAD-Modellpfade, Matching-Schwellen, ICP-Iterationen,
 \captionof{figure}{Projekt~4: CAD-Matching $\rightarrow$ 6D-Posenschätzung
 $\rightarrow$ MoveIt\,2-Greifplanung, angepasst an die erkannte Werkstücklage.}
 \end{center}
+
+\section{Zwei Wege zur 6D-Pose}
+Für das CAD-Matching gibt es einen klassischen und einen lernbasierten Pfad --
+beide enden im selben \code{pose\_estimator} und liefern $(\bm{R},\bm{t})$ über
+\code{/tf} an MoveIt\,2:
+\begin{enumerate}
+\item \textbf{Klassisch (kein Training):} ORB/SIFT-Matching gegen gerenderte
+  CAD-Ansichten $\rightarrow$ \code{solvePnPRansac}, \emph{oder} Stereo-Punktwolke
+  $+$ ICP gegen die CAD-Punktwolke. Schnell aufzusetzen, aber fragil bei
+  texturlosen/glänzenden/symmetrischen Teilen.
+\item \textbf{Gelernte Surface Embeddings (SurfEmb-Linie):} das im Theoriekapitel
+  beschriebene Zwei-Turm-Netz. Robuster bei genau diesen Industrieteilen, dafür
+  Trainingsaufwand. \textbf{Empfehlung:} klassisch starten, lernbasiert
+  nachrüsten, wenn die Teile die klassischen Deskriptoren überfordern.
+\end{enumerate}
+Die theoretischen Grundlagen beider Wege (Rotationsrepräsentationen, kontrastives
+Lernen, Two-Tower-Modell, \code{PnP}+\code{RANSAC}, grobe/feine Registrierung,
+PointNet++) stehen im Theoriekapitel zur 6-DoF-Posenschätzung.
+
+\section{Inferenz-Pipeline (lernbasiert)}
+\begin{enumerate}
+\item \textbf{Detektion/Segmentierung} des Objekts im Stereobild $\rightarrow$
+  Bildausschnitt (RGB oder RGB-D) plus bekanntes CAD-Modell als Eingang.
+\item \textbf{Embedding:} Query-Tower bettet die Pixel ein, Key-Tower die
+  CAD-Oberflächenpunkte -- in denselben Merkmalsraum.
+\item \textbf{Matching} im Embedding-Raum (nächster Nachbar) $\rightarrow$ dichte
+  2D-3D-Korrespondenzen.
+\item \textbf{Pose-Hypothesen:} \code{PnP}+\code{RANSAC} sampeln und bewerten
+  (Scoring), beste Hypothese wählen.
+\item \textbf{Verfeinerung} per ICP $\rightarrow$ finale $(\bm{R},\bm{t})$,
+  Modell$\rightarrow$Roboterframe.
+\end{enumerate}
+
+\noindent\textbf{Punktwolken-Zusatzschritte} (3D-3D-Pfad): Hintergrund entfernen,
+Voxel-Downsampling, statistischer Ausreißerfilter -- vor der Registrierung.
+
+\begin{infobox}[title=Labels sind quasi gratis]
+Das CAD-Modell wird in bekannten Posen gerendert $\rightarrow$ Ground-Truth-Pose
+\emph{und} die Pixel-Punkt-Korrespondenzen liegen automatisch vor. Kein manuelles
+Annotieren, keine Symmetrie-Labels. Das synthetische Training wird per
+\textbf{Domain Randomization} und PBR-Rendering (Isaac Sim) gegen den
+Sim-to-Real-Gap abgehärtet, optional mit kleinem realem Feintuning-Satz.
+\end{infobox}
+
+\section{Stereo als metrische Skala}
+Die Stereokamera ist hier nicht nur Bildquelle: Sie löst die
+\textbf{Skalenmehrdeutigkeit} der Mono-Ansicht. Tiefe geht entweder als
+RGB-D-Zusatzkanal ins Netz oder wird zur Punktwolke rückprojiziert. Erst dadurch
+steht $(\bm{R},\bm{t})$ in echten Millimetern -- die Voraussetzung dafür, dass
+MoveIt\,2 überhaupt greifen kann. \textbf{Vorsicht:} glänzendes Metall liefert
+ungültige Tiefe; saubere Kalibrierung, Rektifizierung und Tiefen-Entrauschung
+sind Pflicht.
+
+\section{Bewegte Teile: Pose-Tracking mit Kalman}
+Liegt das Teil nicht still (Förderband, armmontierte Kamera), ist die bildweise
+Netz-Pose verrauscht und zittrig. Ein \textbf{Kalman-Filter} (vgl.\ Projekt~1/3
+und das Kalman-Kapitel) macht aus Einzelschuss ein \emph{Tracking}: Zustand =
+Pose (ggf.\ + Geschwindigkeit), Messung = bildweise Netz-Pose;
+Prädiktion~$\rightarrow$~Korrektur glättet Jitter, verwirft Ausreißer-Frames und
+überbrückt kurze Verdeckungen. Da Rotationen nichtlinear sind: EKF/UKF oder
+Filtern auf einer geeigneten Rotationsdarstellung. \emph{Dieselbe
+Kalman-Kompetenz wie beim Tischtennisball -- nur auf die 6D-Pose statt die
+Ballposition angewandt.}
+
+\section{Hyperparameter und Evaluation}
+\begin{longtable}{@{}p{4.4cm}p{9.8cm}@{}}
+\toprule
+\textbf{Stellgröße} & \textbf{Wirkung} \\
+\midrule
+Embedding-Dimension & Ausdrucksstärke des Merkmalsraums \\
+Kontrastive Temperatur $\tau$ & Schärfe der Zuordnung im Verlust \\
+\#Negative / Backbone-Tiefe & Trennschärfe bzw.\ Kapazität \\
+LR / Batch / Optimierer & Trainingsdynamik \\
+Augmentierungsstärke & Robustheit gegen Sim-to-Real-Gap \\
+\code{RANSAC}-Iterationen + Inlier-Schwelle & Ausreißerrobustheit der Posenlösung \\
+\#Pose-Hypothesen / Crop-Auflösung & Genauigkeit vs.\ Laufzeit \\
+\bottomrule
+\end{longtable}
+\noindent\textbf{Metriken:} ADD / ADD-S (ADD-S für symmetrische Teile),
+geodätischer Rotations- und euklidischer Translationsfehler, RMSE; im
+Forschungskontext die BOP-Metriken (VSD, MSSD, MSPD $\rightarrow$ Average Recall)
+auf Datensätzen wie T-LESS/ITODD. \textbf{Industrielle KPIs:} Taktzeit/Latenz,
+Pick-Erfolgsrate, Falsch-Positiv-Rate -- das sind die Zahlen, die im
+Maschinenbeladungs-Einsatz zählen.

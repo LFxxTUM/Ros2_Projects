@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.2) (preloaded format=pdflatex 2026.4.4)  1 JUN 2026 16:36
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.2) (preloaded format=pdflatex 2026.4.4)  1 JUN 2026 17:42
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1369,15 +1369,16 @@ Package babel Info: 'ngerman' activates 'german' shorthands.
 (babel)             Reported on input line 12.
  (chapters/ch01_ros2_konzepte.aux) (chapters/ch02_kalman_ekf.aux)
 (chapters/ch03_odometrie.aux) (chapters/ch04_stereosehen.aux)
-(chapters/ch05_kinematik.aux) (chapters/ch06_schrittmotoren.aux)
-(chapters/ch07_zykloidgetriebe.aux) (chapters/ch08_komponenten.aux)
-(chapters/ch09_pcb.aux) (chapters/ch10_betriebssystem.aux)
-(chapters/ch11_installation.aux) (chapters/ch12_simulationswerkzeuge.aux)
-(chapters/ch13_sim_real_trennung.aux) (chapters/ch14_cad_urdf.aux)
-(chapters/ch15_projekt1.aux) (chapters/ch16_projekt2.aux)
-(chapters/ch17_projekt3.aux) (chapters/ch18_projekt4.aux)
-(chapters/ch19_kamera_anbindung.aux) (chapters/ch20_kalibrierung.aux)
-(chapters/ch21_kalman_knoten.aux) (chapters/ch22_merkmalserkennung.aux)
+(chapters/ch04a_posenschaetzung.aux) (chapters/ch05_kinematik.aux)
+(chapters/ch06_schrittmotoren.aux) (chapters/ch07_zykloidgetriebe.aux)
+(chapters/ch08_komponenten.aux) (chapters/ch09_pcb.aux)
+(chapters/ch10_betriebssystem.aux) (chapters/ch11_installation.aux)
+(chapters/ch12_simulationswerkzeuge.aux) (chapters/ch13_sim_real_trennung.aux)
+(chapters/ch14_cad_urdf.aux) (chapters/ch15_projekt1.aux)
+(chapters/ch16_projekt2.aux) (chapters/ch17_projekt3.aux)
+(chapters/ch18_projekt4.aux) (chapters/ch19_kamera_anbindung.aux)
+(chapters/ch20_kalibrierung.aux) (chapters/ch21_kalman_knoten.aux)
+(chapters/ch22_merkmalserkennung.aux) (chapters/ch22a_echtzeit_scheduling.aux)
 (chapters/ch23_kamera_architektur.aux) (chapters/ch24_portalsystem.aux)
 (chapters/ch25_hebelarm.aux) (chapters/ch26_simulierbarkeit.aux)
 (chapters/ch27_cad_module.aux) (chapters/ch28_dokumentation.aux))
@@ -1574,16 +1575,16 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 
 ]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 56.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 69.
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 56.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 69.
 Package babel Info: 'ngerman' activates 'german' shorthands.
-(babel)             Reported on input line 68.
- [3])
+(babel)             Reported on input line 73.
+ [3] [4])
 \tf@toc=\write6
 \openout6 = `main.toc'.
 
- [4]
+ [5]
 pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has 
 been already used, duplicate ignored
 <to be read again> 
@@ -1709,21 +1710,18 @@ ignored: Infinite glue shrinkage found in box being split [8
 
 
 ]) [9]
-\openout2 = `chapters/ch05_kinematik.aux'.
+\openout2 = `chapters/ch04a_posenschaetzung.aux'.
 
- (chapters/ch05_kinematik.tex
+ (chapters/ch04a_posenschaetzung.tex
 Kapitel 5.
 
-Overfull \hbox (11.77222pt too wide) in paragraph at lines 42--45
-[]\T1/lmr/bx/n/10.95 Gelenkraum: \T1/lmr/m/n/10.95 Ku-bi-sche/quintische Po-ly-
-no-me oder ein \T1/lmr/bx/n/10.95 tra-pez-för-mi-ges Ge-schwin-dig-keitspro-
+Underfull \hbox (badness 10000) in paragraph at lines 36--36
+[]|\T1/lmr/m/n/10.95 Rotationsmatrix
  []
 
-)
-Overfull \hbox (69.38222pt too wide) in paragraph at lines 49--45
-\T1/lmr/m/n/10.95 In ROS2 trans-por-tiert \T1/lmtt/m/n/10 trajectory_msgs/Joint
-Trajectory \T1/lmr/m/n/10.95 ei-ne Bahn (Punk-te mit Po-si-ti-on/Geschwindigkei
-t/Zeit),
+
+Underfull \hbox (badness 10000) in paragraph at lines 39--39
+[]|\T1/lmr/m/n/10.95 Kontinuierliche
  []
 
 [10
@@ -1732,11 +1730,63 @@ t/Zeit),
 
 
 ]
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <9> on input line 103.
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <5> on input line 103.
+
+
+Package caption Warning: The option `hypcap=true' will be ignored for this
+(caption)                particular \caption on input line 120.
+See the caption package documentation for explanation.
+
+[11] [12]
+Underfull \hbox (badness 1072) in paragraph at lines 216--217
+[]|\T1/lmr/m/n/10.95 mittlerer Punktab-stand Modell$\OMS/lmsy/m/n/10.95 $$\T1/l
+mr/m/n/10.95 Schätzung; ADD-S nutzt
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 217--217
+[]|\T1/lmr/m/n/10.95 Rotations-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 220--221
+[]|\T1/lmr/m/n/10.95 BOP-Suite, spe-zi-ell \T1/lmr/bx/n/10.95 T-LESS \T1/lmr/m/
+n/10.95 und \T1/lmr/bx/n/10.95 ITODD \T1/lmr/m/n/10.95 (tex-tur-
+ []
+
+
+ignored: Infinite glue shrinkage found in box being split [13]) [14]
+\openout2 = `chapters/ch05_kinematik.aux'.
+
+ (chapters/ch05_kinematik.tex
+Kapitel 6.
+
+Overfull \hbox (11.77222pt too wide) in paragraph at lines 42--45
+[]\T1/lmr/bx/n/10.95 Gelenkraum: \T1/lmr/m/n/10.95 Ku-bi-sche/quintische Po-ly-
+no-me oder ein \T1/lmr/bx/n/10.95 tra-pez-för-mi-ges Ge-schwin-dig-keitspro-
+ []
+
+)
+Overfull \hbox (69.38222pt too wide) in paragraph at lines 49--46
+\T1/lmr/m/n/10.95 In ROS2 trans-por-tiert \T1/lmtt/m/n/10 trajectory_msgs/Joint
+Trajectory \T1/lmr/m/n/10.95 ei-ne Bahn (Punk-te mit Po-si-ti-on/Geschwindigkei
+t/Zeit),
+ []
+
+[15
+
+
+
+
+]
 \openout2 = `chapters/ch06_schrittmotoren.aux'.
 
  (chapters/ch06_schrittmotoren.tex
-Kapitel 6.
-) [11
+Kapitel 7.
+) [16
 
 
 
@@ -1745,13 +1795,13 @@ Kapitel 6.
 \openout2 = `chapters/ch07_zykloidgetriebe.aux'.
 
  (chapters/ch07_zykloidgetriebe.tex
-Kapitel 7.
-) [12
+Kapitel 8.
+) [17
 
 
 
 
-] [13
+] [18
 
 
 
@@ -1759,27 +1809,27 @@ Kapitel 7.
 \openout2 = `chapters/ch08_komponenten.aux'.
 
  (chapters/ch08_komponenten.tex
-Kapitel 8.
+Kapitel 9.
 
 Underfull \hbox (badness 1655) in paragraph at lines 20--21
 []|\T1/lmr/m/n/10.95 Standard, güns-tig, aus-rei-chend Mo-ment
  []
 
-[14
+[19
 
 
-]) [15]
+]) [20]
 \openout2 = `chapters/ch09_pcb.aux'.
 
  (chapters/ch09_pcb.tex
-Kapitel 9.
+Kapitel 10.
 
 Overfull \hbox (12.62727pt too wide) in paragraph at lines 21--23
 []\T1/lmr/bx/n/10.95 Schutz: \T1/lmr/m/n/10.95 ESD-Dioden an USB- und Encoder-L
 eitungen; Ver-pol-schutz; Freilauf-/EMV-Betrachtung
  []
 
-) [16
+) [21
 
 
 
@@ -1787,14 +1837,14 @@ eitungen; Ver-pol-schutz; Freilauf-/EMV-Betrachtung
 ]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `\leavevmode@ifvmode' on input line 60.
+(hyperref)                removing `\leavevmode@ifvmode' on input line 61.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.82538pt
-(hyperref)                removed on input line 60.
+(hyperref)                removed on input line 61.
 
-[17
+[22
 
 
 
@@ -1802,15 +1852,15 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 \openout2 = `chapters/ch10_betriebssystem.aux'.
 
  (chapters/ch10_betriebssystem.tex
-Kapitel 10.
-) [18
+Kapitel 11.
+) [23
 
 
 ]
 \openout2 = `chapters/ch11_installation.aux'.
 
  (chapters/ch11_installation.tex
-Kapitel 11.
+Kapitel 12.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 5.
@@ -1826,18 +1876,18 @@ Underfull \hbox (badness 10000) in paragraph at lines 49--50
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [19
+ignored: Infinite glue shrinkage found in box being split [24
 
 
 
 
 ])
-Overfull \hbox (48.84608pt too wide) in paragraph at lines 62--63
+Overfull \hbox (48.84608pt too wide) in paragraph at lines 62--64
 \T1/lmr/m/n/10.95 Installation ge-bün-delt, z.B. \T1/lmtt/m/n/10 sudo apt insta
 ll ros-jazzy-ros-gz ros-jazzy-ros2-control ros-jazzy-moveit
  []
 
-[20] [21
+[25] [26
 
 
 
@@ -1845,7 +1895,7 @@ ll ros-jazzy-ros-gz ros-jazzy-ros2-control ros-jazzy-moveit
 \openout2 = `chapters/ch12_simulationswerkzeuge.aux'.
 
  (chapters/ch12_simulationswerkzeuge.tex
-Kapitel 12.
+Kapitel 13.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 5.
@@ -1871,7 +1921,7 @@ Overfull \hbox (13.20657pt too wide) in paragraph at lines 30--33
 Gra-vi-ta-ti-on und Auf-prall als Starr-kör-per-phy-sik; dein Kalman-
  []
 
-[22
+[27
 
 
 ]
@@ -1880,7 +1930,7 @@ Overfull \hbox (4.07631pt too wide) in paragraph at lines 76--81
 ti-on, Mo-dell-prä-dik-ti-ve Re-ge-lung (MPC). Wenn
  []
 
-[23]
+[28]
 Underfull \hbox (badness 10000) in paragraph at lines 117--118
 []|\T1/lmr/m/n/10.95 Allround-Integrationstest, Sen-so-rik,
  []
@@ -1905,11 +1955,11 @@ Underfull \hbox (badness 2961) in paragraph at lines 119--120
 \T1/lmr/m/n/10.95 sche Pose-Schätzung, RL via Isaac
  []
 
-) [24]
+) [29]
 \openout2 = `chapters/ch13_sim_real_trennung.aux'.
 
  (chapters/ch13_sim_real_trennung.tex
-Kapitel 13.
+Kapitel 14.
 
 Overfull \hbox (2.82893pt too wide) in paragraph at lines 7--11
 \T1/lmr/m/n/10.95 Das ist die ar-chi-tek-to-nisch wich-tigs-te Ein-sicht des ga
@@ -1917,14 +1967,12 @@ n-zen Do-ku-ments. Der Trick von \T1/lmr/bx/n/10.95 ros2_control\T1/lmr/m/n/10.
 95 :
  []
 
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 15.
 
 Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 35.
 See the caption package documentation for explanation.
 
-) [25
+) [30
 
 
 
@@ -1933,7 +1981,7 @@ See the caption package documentation for explanation.
 \openout2 = `chapters/ch14_cad_urdf.aux'.
 
  (chapters/ch14_cad_urdf.tex
-Kapitel 14.
+Kapitel 15.
 
 Overfull \hbox (4.26855pt too wide) in paragraph at lines 17--19
 []\T1/lmr/m/n/10.95 Im CAD die Ge-lenkach-sen und je Link ein Referenz-Frame fe
@@ -1948,15 +1996,15 @@ File: lstlang1.sty 2025/11/14 1.11b listings language file
 (C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstmisc
 .sty
 File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
-) [26
+) [31
 
 
 
 
-]) [27]
+]) [32]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <24.88> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 77.
- [28
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 78.
+ [33
 
 
 
@@ -1964,7 +2012,7 @@ LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <24.88> not available
 \openout2 = `chapters/ch15_projekt1.aux'.
 
  (chapters/ch15_projekt1.tex
-Kapitel 15.
+Kapitel 16.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 11.
@@ -2003,14 +2051,14 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 49.
 See the caption package documentation for explanation.
 
-) [29
+) [34
 
 
 ]
 \openout2 = `chapters/ch16_projekt2.aux'.
 
  (chapters/ch16_projekt2.tex
-Kapitel 16.
+Kapitel 17.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 10.
@@ -2039,10 +2087,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 47.
 See the caption package documentation for explanation.
 
-
-LaTeX Warning: Reference `ch:kalman' on page 30 undefined on input line 50.
-
-) [30
+) [35
 
 
 
@@ -2051,7 +2096,7 @@ LaTeX Warning: Reference `ch:kalman' on page 30 undefined on input line 50.
 \openout2 = `chapters/ch17_projekt3.aux'.
 
  (chapters/ch17_projekt3.tex
-Kapitel 17.
+Kapitel 18.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 10.
@@ -2089,7 +2134,7 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <10> on input line 46.
 LaTeX Font Info:    External font `lmex10' loaded for size
 (Font)              <7> on input line 46.
-) [31
+) [36
 
 
 
@@ -2098,7 +2143,7 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 \openout2 = `chapters/ch18_projekt4.aux'.
 
  (chapters/ch18_projekt4.tex
-Kapitel 18.
+Kapitel 19.
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 10.
@@ -2126,22 +2171,51 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 42.
 See the caption package documentation for explanation.
 
-) [32
+
+Overfull \hbox (44.30414pt too wide) in paragraph at lines 50--54
+[]\T1/lmr/bx/n/10.95 Klassisch (kein Trai-ning): \T1/lmr/m/n/10.95 ORB/SIFT-Mat
+ching ge-gen ge-ren-der-te CAD-Ansichten $\OMS/lmsy/m/n/10.95 !$ \T1/lmtt/m/n/1
+0 solvePnPRansac\T1/lmr/m/n/10.95 ,
+ []
+
+
+Overfull \hbox (1.37099pt too wide) in paragraph at lines 54--58
+[]\T1/lmr/bx/n/10.95 Gelernte Sur-face Em-bed-dings (SurfEmb-Linie): \T1/lmr/m/
+n/10.95 das im Theo-rie-ka-pi-tel be-schrie-be-ne Zwei-
+ []
+
+[37
 
 
 
 
 ]
+Underfull \hbox (badness 3189) in paragraph at lines 115--115
+[]|\T1/lmr/m/n/10.95 #Negative / Backbone-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 118--118
+[]|\T1/lmtt/m/n/10 RANSAC\T1/lmr/m/n/10.95 -Iterationen +
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 119--119
+[]|\T1/lmr/m/n/10.95 #Pose-Hypothesen /
+ []
+
+
+ignored: Infinite glue shrinkage found in box being split [38]) [39]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `\leavevmode@ifvmode' on input line 87.
+(hyperref)                removing `\leavevmode@ifvmode' on input line 88.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.82538pt
-(hyperref)                removed on input line 87.
+(hyperref)                removed on input line 88.
 
-[33
+[40
 
 
 
@@ -2149,7 +2223,7 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 \openout2 = `chapters/ch19_kamera_anbindung.aux'.
 
  (chapters/ch19_kamera_anbindung.tex
-Kapitel 19.
+Kapitel 20.
 
 Overfull \hbox (22.93958pt too wide) in paragraph at lines 7--9
 \T1/lmr/m/n/10.95 Die syn-chro-ni-sier-te ELP-Kamera lie-fert ein side-by-side-
@@ -2160,15 +2234,15 @@ Bild. Erst den Trei-ber star-ten, dann links/rechts
 (C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstlang
 1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
-)) [34
+)) [41
 
 
 ]
 \openout2 = `chapters/ch20_kalibrierung.aux'.
 
  (chapters/ch20_kalibrierung.tex
-Kapitel 20.
-) [35
+Kapitel 21.
+) [42
 
 
 
@@ -2177,8 +2251,8 @@ Kapitel 20.
 \openout2 = `chapters/ch21_kalman_knoten.aux'.
 
  (chapters/ch21_kalman_knoten.tex
-Kapitel 21.
-) [36
+Kapitel 22.
+) [43
 
 
 
@@ -2187,13 +2261,41 @@ Kapitel 21.
 \openout2 = `chapters/ch22_merkmalserkennung.aux'.
 
  (chapters/ch22_merkmalserkennung.tex
-Kapitel 22.
-) [37
+Kapitel 23.
+) [44
 
 
 
 
-] [38
+]
+\openout2 = `chapters/ch22a_echtzeit_scheduling.aux'.
+
+ (chapters/ch22a_echtzeit_scheduling.tex
+Kapitel 24.
+[45
+
+
+
+
+] [46]
+Underfull \hbox (badness 1077) in paragraph at lines 122--129
+\T1/lmr/m/n/10.95 weil ein lang-sa-mer Detektions-Thread sie spät ab-lie-fert),
+ sind zwei We-ge sau-ber: (a)
+ []
+
+
+Underfull \hbox (badness 1400) in paragraph at lines 122--129
+\T1/lmr/m/n/10.95 sie schlicht \T1/lmr/bx/n/10.95 ver-wer-fen \T1/lmr/m/n/10.95
+ (ein-fach, meist aus-rei-chend), oder (b) ein \T1/lmr/bx/n/10.95 Out-of-Sequen
+ce-
+ []
+
+
+Package caption Warning: The option `hypcap=true' will be ignored for this
+(caption)                particular \caption on input line 154.
+See the caption package documentation for explanation.
+
+[47]) [48] [49
 
 
 
@@ -2201,7 +2303,7 @@ Kapitel 22.
 \openout2 = `chapters/ch23_kamera_architektur.aux'.
 
  (chapters/ch23_kamera_architektur.tex
-Kapitel 23.
+Kapitel 25.
 
 Overfull \hbox (36.03903pt too wide) in paragraph at lines 7--10
 \T1/lmr/m/n/10.95 ROS-Service oder ein-fa-chem UDP/WLAN wei-ter-zu-lei-ten -- o
@@ -2214,7 +2316,7 @@ Overfull \hbox (4.3291pt too wide) in paragraph at lines 38--42
 er ESP32 ge-hört auf die \T1/lmr/bx/n/10.95 Echtzeit-
  []
 
-[39
+[50
 
 
 ]
@@ -2223,11 +2325,11 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 95.
 See the caption package documentation for explanation.
 
-) [40]
+) [51]
 \openout2 = `chapters/ch24_portalsystem.aux'.
 
  (chapters/ch24_portalsystem.tex
-Kapitel 24.
+Kapitel 26.
 
 Overfull \hbox (20.58308pt too wide) in paragraph at lines 17--21
 \T1/lmr/m/n/10.95 Schlitten. Bau-prin-zip wie die Bambu-Lab-P2S-X-Achse -- \T1/
@@ -2240,7 +2342,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 48--48
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [41
+ignored: Infinite glue shrinkage found in box being split [52
 
 
 
@@ -2251,21 +2353,21 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 83.
 See the caption package documentation for explanation.
 
-) [42]
+) [53]
 \openout2 = `chapters/ch25_hebelarm.aux'.
 
  (chapters/ch25_hebelarm.tex
-Kapitel 25.
-) [43
+Kapitel 27.
+) [54
 
 
 
 
-] [44]
+] [55]
 \openout2 = `chapters/ch26_simulierbarkeit.aux'.
 
  (chapters/ch26_simulierbarkeit.tex
-Kapitel 26.
+Kapitel 28.
 
 Underfull \hbox (badness 6842) in paragraph at lines 15--16
 []|\T1/lmr/m/n/10.95 Strukturelle Bie-gung/Durchbiegung der
@@ -2281,16 +2383,16 @@ Underfull \hbox (badness 1584) in paragraph at lines 18--18
 []|\T1/lmr/m/n/10.95 Dynamische Kopp-lung (Arm-träg-heit rea-
  []
 
-) [45
+) [56
 
 
 
 
-] [46]
+] [57]
 \openout2 = `chapters/ch27_cad_module.aux'.
 
  (chapters/ch27_cad_module.tex
-Kapitel 27.
+Kapitel 29.
 
 Underfull \hbox (badness 10000) in paragraph at lines 13--13
 []|\T1/lmr/m/n/10.95 horizontale Ver-fahrach-se
@@ -2346,7 +2448,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 46.
 See the caption package documentation for explanation.
 
-[47
+[58
 
 
 
@@ -2357,7 +2459,7 @@ Underfull \hbox (badness 1033) in paragraph at lines 96--102
 g in Li-near-weg: \T1/lmr/m/it/10.95 Weg pro Um-dre-
  []
 
-) [48] [49
+) [59] [60
 
 
 
@@ -2365,7 +2467,7 @@ g in Li-near-weg: \T1/lmr/m/it/10.95 Weg pro Um-dre-
 \openout2 = `chapters/ch28_dokumentation.aux'.
 
  (chapters/ch28_dokumentation.tex
-Kapitel 28.
+Kapitel 30.
 
 Overfull \hbox (3.52089pt too wide) in paragraph at lines 13--19
 \T1/lmr/m/n/10.95 Ver-drah-tung, Pin-be-le-gung), \T1/lmtt/m/n/10 /software \T1
@@ -2373,32 +2475,46 @@ Overfull \hbox (3.52089pt too wide) in paragraph at lines 13--19
 bration
  []
 
-) [50
+) [61
 
 
 ]
-Overfull \hbox (8.78279pt too wide) in paragraph at lines 116--116
+Overfull \hbox (1.95125pt too wide) in paragraph at lines 118--118
+[]\T1/lmr/m/n/10.95 Radu Bog-dan Ru-su, Ni-co Blo-dow und Mi-cha-el Beetz. ``Fa
+st Point Fea-ture Hi-sto-grams (FPFH)
+ []
+
+
+Overfull \hbox (4.27553pt too wide) in paragraph at lines 118--118
+\T1/lmr/m/n/10.95 for 3D Re-gis-tra-ti-on''. In: \T1/lmr/m/it/10.95 IE-EE In-te
+r-na-tio-nal Con-fe-rence on Ro-bo-tics and Au-to-ma-ti-on (ICRA)\T1/lmr/m/n/10
+.95 .
+ []
+
+
+Overfull \hbox (14.25778pt too wide) in paragraph at lines 118--118
 []\T1/lmr/m/n/10.95 NVIDIA. \T1/lmr/m/it/10.95 NVI-DIA Isaac Sim Do-cu-men-ta-t
 i-on\T1/lmr/m/n/10.95 . 2024. \T1/lmr/m/sc/10.95 url\T1/lmr/m/n/10.95 : [][]$\T
 1/lmtt/m/n/10.95 https : / / docs . isaacsim . omniverse .
  []
 
-[51
+[62
 
 
 
 
 ] (main.aux (chapters/ch01_ros2_konzepte.aux) (chapters/ch02_kalman_ekf.aux) (c
 hapters/ch03_odometrie.aux) (chapters/ch04_stereosehen.aux)
-(chapters/ch05_kinematik.aux) (chapters/ch06_schrittmotoren.aux)
-(chapters/ch07_zykloidgetriebe.aux) (chapters/ch08_komponenten.aux)
-(chapters/ch09_pcb.aux) (chapters/ch10_betriebssystem.aux)
-(chapters/ch11_installation.aux) (chapters/ch12_simulationswerkzeuge.aux)
-(chapters/ch13_sim_real_trennung.aux) (chapters/ch14_cad_urdf.aux)
-(chapters/ch15_projekt1.aux) (chapters/ch16_projekt2.aux)
-(chapters/ch17_projekt3.aux) (chapters/ch18_projekt4.aux)
-(chapters/ch19_kamera_anbindung.aux) (chapters/ch20_kalibrierung.aux)
-(chapters/ch21_kalman_knoten.aux) (chapters/ch22_merkmalserkennung.aux)
+(chapters/ch04a_posenschaetzung.aux) (chapters/ch05_kinematik.aux)
+(chapters/ch06_schrittmotoren.aux) (chapters/ch07_zykloidgetriebe.aux)
+(chapters/ch08_komponenten.aux) (chapters/ch09_pcb.aux)
+(chapters/ch10_betriebssystem.aux) (chapters/ch11_installation.aux)
+(chapters/ch12_simulationswerkzeuge.aux) (chapters/ch13_sim_real_trennung.aux)
+(chapters/ch14_cad_urdf.aux) (chapters/ch15_projekt1.aux)
+(chapters/ch16_projekt2.aux) (chapters/ch17_projekt3.aux)
+(chapters/ch18_projekt4.aux) (chapters/ch19_kamera_anbindung.aux)
+(chapters/ch20_kalibrierung.aux) (chapters/ch21_kalman_knoten.aux)
+(chapters/ch22_merkmalserkennung.aux) (chapters/ch22a_echtzeit_scheduling.aux)
 (chapters/ch23_kamera_architektur.aux) (chapters/ch24_portalsystem.aux)
 (chapters/ch25_hebelarm.aux) (chapters/ch26_simulierbarkeit.aux)
 (chapters/ch27_cad_module.aux) (chapters/ch28_dokumentation.aux))
@@ -2411,7 +2527,7 @@ L3 programming layer <2026-01-19>
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: BB9F085B5C1C3AE389AC9095C18DE74B;20005.
+(rerunfilecheck)             Checksum: 5F8E7B4E70CBC5F303471E25FF6C0B2C;25579.
 
 Package biblatex Warning: Please (re)run BibTeX on the file(s):
 (biblatex)                main
@@ -2422,44 +2538,49 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 42307 strings out of 467867
- 867104 string characters out of 5414947
- 2114572 words of memory out of 5000000
- 69894 multiletter control sequences out of 15000+600000
- 751155 words of font info for 132 fonts, out of 8000000 for 9000
+ 42708 strings out of 467867
+ 875564 string characters out of 5414947
+ 2125845 words of memory out of 5000000
+ 70149 multiletter control sequences out of 15000+600000
+ 766030 words of font info for 142 fonts, out of 8000000 for 9000
  1143 hyphenation exceptions out of 8191
  89i,13n,99p,1890b,2371s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/euros
 ym/feymr10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1
 /public/lm/lmbx10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/font
 s/type1/public/lm/lmbx12.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKT
-eX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Progr
-ams/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Users/_Innos_Zorn_/AppData/Loc
-al/Programs/MiKTeX/fonts/type1/public/lm/lmex10.pfb><C:/Users/_Innos_Zorn_/AppD
-ata/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi10.pfb><C:/Users/_Innos_Zor
-n_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi6.pfb><C:/Users/_Inn
-os_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C:/User
-s/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmib10.pfb>
-<C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmr1
-0.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/l
-m/lmr12.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/pu
-blic/lm/lmr6.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/typ
-e1/public/lm/lmr8.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/font
-s/type1/public/lm/lmri10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKT
-eX/fonts/type1/public/lm/lmri12.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Progra
-ms/MiKTeX/fonts/type1/public/lm/lmri8.pfb><C:/Users/_Innos_Zorn_/AppData/Local/
-Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/_Innos_Zorn_/AppData
-/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy6.pfb><C:/Users/_Innos_Zorn_/A
-ppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><C:/Users/_Innos_Z
-orn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtk10.pfb><C:/Users/_
-Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt10.pfb><C:/
-Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt8.pf
-b><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lm
-tt9.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public
-/lm/lmtti10.pfb>
-Output written on main.pdf (56 pages, 776383 bytes).
+eX/fonts/type1/public/lm/lmbx8.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Program
+s/MiKTeX/fonts/type1/public/lm/lmbxi10.pfb><C:/Users/_Innos_Zorn_/AppData/Local
+/Programs/MiKTeX/fonts/type1/public/lm/lmcsc10.pfb><C:/Users/_Innos_Zorn_/AppDa
+ta/Local/Programs/MiKTeX/fonts/type1/public/lm/lmex10.pfb><C:/Users/_Innos_Zorn
+_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi10.pfb><C:/Users/_Inn
+os_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi6.pfb><C:/User
+s/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi8.pfb><C
+:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmmi9.
+pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/
+lmmib10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/pu
+blic/lm/lmr10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/ty
+pe1/public/lm/lmr12.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fo
+nts/type1/public/lm/lmr6.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKT
+eX/fonts/type1/public/lm/lmr8.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs
+/MiKTeX/fonts/type1/public/lm/lmr9.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Pro
+grams/MiKTeX/fonts/type1/public/lm/lmri10.pfb><C:/Users/_Innos_Zorn_/AppData/Lo
+cal/Programs/MiKTeX/fonts/type1/public/lm/lmri12.pfb><C:/Users/_Innos_Zorn_/App
+Data/Local/Programs/MiKTeX/fonts/type1/public/lm/lmri8.pfb><C:/Users/_Innos_Zor
+n_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy10.pfb><C:/Users/_In
+nos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy6.pfb><C:/Use
+rs/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy8.pfb><
+C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmsy9
+.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm
+/lmtk10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/pu
+blic/lm/lmtt10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/t
+ype1/public/lm/lmtt8.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/f
+onts/type1/public/lm/lmtt9.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Programs/Mi
+KTeX/fonts/type1/public/lm/lmtti10.pfb><C:/Users/_Innos_Zorn_/AppData/Local/Pro
+grams/MiKTeX/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
+Output written on main.pdf (68 pages, 905434 bytes).
 PDF statistics:
- 1283 PDF objects out of 1440 (max. 8388607)
- 439 named destinations out of 1000 (max. 500000)
- 901 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1601 PDF objects out of 1728 (max. 8388607)
+ 566 named destinations out of 1000 (max. 500000)
+ 1085 words of extra memory for PDF output out of 10000 (max. 10000000)
 

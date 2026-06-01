@@ -20,75 +20,98 @@
 \contentsline {section}{\numberline {4.2}Kalibrierung}{8}{section.4.2}%
 \contentsline {section}{\numberline {4.3}Merkmalserkennung ohne eigenes KI-Training}{8}{section.4.3}%
 \contentsline {section}{\numberline {4.4}Posenschätzung -- 6D-Lage eines Bauteils}{9}{section.4.4}%
-\contentsline {chapter}{\numberline {5}Kinematik, Dynamik und Trajektorien}{10}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Vorwärtskinematik}{10}{section.5.1}%
-\contentsline {section}{\numberline {5.2}Inverse Kinematik}{10}{section.5.2}%
-\contentsline {section}{\numberline {5.3}Dynamik}{10}{section.5.3}%
-\contentsline {section}{\numberline {5.4}Trajektorienplanung}{10}{section.5.4}%
-\contentsline {chapter}{\numberline {6}Schrittmotoren und Drehmomentschätzung}{11}{chapter.6}%
-\contentsline {section}{\numberline {6.1}NEMA-17-Grundlagen}{11}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Indirekte Drehmomentschätzung}{11}{section.6.2}%
-\contentsline {chapter}{\numberline {7}Zykloidgetriebe}{12}{chapter.7}%
-\contentsline {part}{II\hspace {1em}Hardware-Auswahl}{13}{part.2}%
-\contentsline {chapter}{\numberline {8}Komponenten im günstigen Hobby-Bereich}{14}{chapter.8}%
-\contentsline {section}{\numberline {8.1}Schrittmotor und Treiber}{14}{section.8.1}%
-\contentsline {section}{\numberline {8.2}Recheneinheiten}{14}{section.8.2}%
-\contentsline {section}{\numberline {8.3}Stereokamera}{15}{section.8.3}%
-\contentsline {chapter}{\numberline {9}Optimierungspotenzial für ein eigenes PCB}{16}{chapter.9}%
-\contentsline {part}{III\hspace {1em}Software-Setup: VM, Linux, ROS\,2}{17}{part.3}%
-\contentsline {chapter}{\numberline {10}Betriebssystem und Distribution}{18}{chapter.10}%
-\contentsline {section}{\numberline {10.1}Distributionswahl (Stand Juni 2026)}{18}{section.10.1}%
-\contentsline {section}{\numberline {10.2}VM, Dual-Boot oder WSL2?}{18}{section.10.2}%
-\contentsline {chapter}{\numberline {11}ROS\,2 installieren -- Schritt für Schritt}{19}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Pakete, die du für die Projekte brauchst}{19}{section.11.1}%
-\contentsline {part}{IV\hspace {1em}Simulation und der Weg vom CAD-Modell zur Realität}{21}{part.4}%
-\contentsline {chapter}{\numberline {12}Simulationswerkzeuge im ROS\,2-Ökosystem}{22}{chapter.12}%
-\contentsline {section}{\numberline {12.1}Was lässt sich vorab simulieren?}{22}{section.12.1}%
-\contentsline {section}{\numberline {12.2}MuJoCo und Isaac Sim im Detail}{23}{section.12.2}%
-\contentsline {subsection}{\numberline {12.2.1}MuJoCo -- Multi-Joint dynamics with Contact}{23}{subsection.12.2.1}%
-\contentsline {subsection}{\numberline {12.2.2}NVIDIA Isaac Sim -- photorealistisch und GPU-parallel}{23}{subsection.12.2.2}%
-\contentsline {section}{\numberline {12.3}Lassen sie sich integriert einsetzen?}{24}{section.12.3}%
-\contentsline {chapter}{\numberline {13}Wo sich Simulation und reale Implementierung trennen}{25}{chapter.13}%
-\contentsline {chapter}{\numberline {14}Vorabschritte: vom CAD-Modell zur Simulation}{26}{chapter.14}%
-\contentsline {section}{\numberline {14.1}Getrennte STL-Exporte pro Gelenk}{26}{section.14.1}%
-\contentsline {section}{\numberline {14.2}Gelenktypen}{27}{section.14.2}%
-\contentsline {section}{\numberline {14.3}Getriebeübersetzung in ros2\_control}{27}{section.14.3}%
-\contentsline {part}{V\hspace {1em}Die vier Projekte: Architektur und \texttt {\small rqt\_graph}}{28}{part.5}%
-\contentsline {chapter}{\numberline {15}Projekt 1 -- Stepper-Roboter mit Trajektorienbefehl vom PC}{29}{chapter.15}%
-\contentsline {section}{\numberline {15.1}ROS\,2-Bausteine}{29}{section.15.1}%
-\contentsline {section}{\numberline {15.2}rqt\_graph (vereinfacht)}{29}{section.15.2}%
-\contentsline {chapter}{\numberline {16}Projekt 2 -- Tischtennisroboter}{30}{chapter.16}%
-\contentsline {section}{\numberline {16.1}ROS\,2-Bausteine}{30}{section.16.1}%
-\contentsline {section}{\numberline {16.2}rqt\_graph (vereinfacht)}{30}{section.16.2}%
-\contentsline {chapter}{\numberline {17}Projekt 3 -- Mobiler Roboter: Odometrie, Navigation, Bewegungserkennung}{31}{chapter.17}%
-\contentsline {section}{\numberline {17.1}ROS\,2-Bausteine}{31}{section.17.1}%
-\contentsline {chapter}{\numberline {18}Projekt 4 -- CAD-basierte Posenerkennung und Greifen}{32}{chapter.18}%
-\contentsline {section}{\numberline {18.1}ROS\,2-Bausteine}{32}{section.18.1}%
-\contentsline {part}{VI\hspace {1em}Stereokamera in ROS\,2 -- Praxis mit Code}{33}{part.6}%
-\contentsline {chapter}{\numberline {19}Kamera anbinden, Frame splitten}{34}{chapter.19}%
-\contentsline {chapter}{\numberline {20}Kalibrieren und Tiefe erzeugen}{35}{chapter.20}%
-\contentsline {chapter}{\numberline {21}Kalman-Filter-Knoten (Ballverfolgung)}{36}{chapter.21}%
-\contentsline {chapter}{\numberline {22}Merkmalserkennung ohne KI-Training}{37}{chapter.22}%
-\contentsline {part}{VII\hspace {1em}Tischtennisroboter: Mechanik, Kamera-Architektur und CAD/URDF}{38}{part.7}%
-\contentsline {chapter}{\numberline {23}Kamera-Architektur -- wo wird gerechnet?}{39}{chapter.23}%
-\contentsline {section}{\numberline {23.1}Die Bandbreitenrechnung entscheidet}{39}{section.23.1}%
-\contentsline {section}{\numberline {23.2}Verdikt pro Plattform}{39}{section.23.2}%
-\contentsline {section}{\numberline {23.3}Sparse statt dense: der Ball braucht keine volle Tiefenkarte}{40}{section.23.3}%
-\contentsline {section}{\numberline {23.4}ROS-Service, UDP oder Topic?}{40}{section.23.4}%
-\contentsline {chapter}{\numberline {24}Mechanischer Aufbau: Portalsystem (Gantry)}{41}{chapter.24}%
-\contentsline {section}{\numberline {24.1}Grundkonzept}{41}{section.24.1}%
-\contentsline {section}{\numberline {24.2}Geschachtelte Achsen}{41}{section.24.2}%
-\contentsline {section}{\numberline {24.3}Antriebstopologie und Hardware-Anschluss}{41}{section.24.3}%
-\contentsline {chapter}{\numberline {25}Das Hebelarm- und Schwingungsproblem}{43}{chapter.25}%
-\contentsline {section}{\numberline {25.1}Die Physik}{43}{section.25.1}%
-\contentsline {section}{\numberline {25.2}Gegenmaßnahmen}{43}{section.25.2}%
-\contentsline {chapter}{\numberline {26}Simulierbarkeit in Gazebo und RViz}{45}{chapter.26}%
-\contentsline {section}{\numberline {26.1}Was Gazebo kann -- und was nicht}{45}{section.26.1}%
-\contentsline {section}{\numberline {26.2}Wege, die Nachgiebigkeit doch abzubilden}{45}{section.26.2}%
-\contentsline {chapter}{\numberline {27}CAD-Module und URDF}{47}{chapter.27}%
-\contentsline {section}{\numberline {27.1}Notwendige CAD-Module mit Designanforderungen}{47}{section.27.1}%
-\contentsline {section}{\numberline {27.2}Kinematische Kette}{47}{section.27.2}%
-\contentsline {section}{\numberline {27.3}URDF/Xacro-Gerüst}{47}{section.27.3}%
-\contentsline {part}{VIII\hspace {1em}Dokumentationsmethodik}{49}{part.8}%
-\contentsline {chapter}{\numberline {28}Vorgehensweise festhalten}{50}{chapter.28}%
-\contentsline {chapter}{Literaturverzeichnis}{51}{chapter*.3}%
+\contentsline {chapter}{\numberline {5}6-DoF-Posenschätzung mit gelernten Surface Embeddings}{10}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Das Problem: sechs Freiheitsgrade}{10}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Rotationsrepräsentationen}{10}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Warum gelernte Embeddings statt Regression}{11}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Kontrastives Lernen der Embeddings}{11}{section.5.4}%
+\contentsline {section}{\numberline {5.5}Das Two-Tower-Modell (Query--Key)}{11}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Von Korrespondenzen zur Pose: PnP + RANSAC}{12}{section.5.6}%
+\contentsline {section}{\numberline {5.7}Registrierung: grob und fein}{12}{section.5.7}%
+\contentsline {section}{\numberline {5.8}Punktwolken-Netze: PointNet und PointNet++}{13}{section.5.8}%
+\contentsline {section}{\numberline {5.9}Stereo, Tiefe und Skalierung}{13}{section.5.9}%
+\contentsline {section}{\numberline {5.10}Zeitliche Konsistenz: Kalman-Pose-Tracking}{13}{section.5.10}%
+\contentsline {section}{\numberline {5.11}Sim-to-Real und Trainingsdaten}{13}{section.5.11}%
+\contentsline {section}{\numberline {5.12}Benchmarking und Metriken}{13}{section.5.12}%
+\contentsline {chapter}{\numberline {6}Kinematik, Dynamik und Trajektorien}{15}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Vorwärtskinematik}{15}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Inverse Kinematik}{15}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Dynamik}{15}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Trajektorienplanung}{15}{section.6.4}%
+\contentsline {chapter}{\numberline {7}Schrittmotoren und Drehmomentschätzung}{16}{chapter.7}%
+\contentsline {section}{\numberline {7.1}NEMA-17-Grundlagen}{16}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Indirekte Drehmomentschätzung}{16}{section.7.2}%
+\contentsline {chapter}{\numberline {8}Zykloidgetriebe}{17}{chapter.8}%
+\contentsline {part}{II\hspace {1em}Hardware-Auswahl}{18}{part.2}%
+\contentsline {chapter}{\numberline {9}Komponenten im günstigen Hobby-Bereich}{19}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Schrittmotor und Treiber}{19}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Recheneinheiten}{19}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Stereokamera}{20}{section.9.3}%
+\contentsline {chapter}{\numberline {10}Optimierungspotenzial für ein eigenes PCB}{21}{chapter.10}%
+\contentsline {part}{III\hspace {1em}Software-Setup: VM, Linux, ROS\,2}{22}{part.3}%
+\contentsline {chapter}{\numberline {11}Betriebssystem und Distribution}{23}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Distributionswahl (Stand Juni 2026)}{23}{section.11.1}%
+\contentsline {section}{\numberline {11.2}VM, Dual-Boot oder WSL2?}{23}{section.11.2}%
+\contentsline {chapter}{\numberline {12}ROS\,2 installieren -- Schritt für Schritt}{24}{chapter.12}%
+\contentsline {section}{\numberline {12.1}Pakete, die du für die Projekte brauchst}{24}{section.12.1}%
+\contentsline {part}{IV\hspace {1em}Simulation und der Weg vom CAD-Modell zur Realität}{26}{part.4}%
+\contentsline {chapter}{\numberline {13}Simulationswerkzeuge im ROS\,2-Ökosystem}{27}{chapter.13}%
+\contentsline {section}{\numberline {13.1}Was lässt sich vorab simulieren?}{27}{section.13.1}%
+\contentsline {section}{\numberline {13.2}MuJoCo und Isaac Sim im Detail}{28}{section.13.2}%
+\contentsline {subsection}{\numberline {13.2.1}MuJoCo -- Multi-Joint dynamics with Contact}{28}{subsection.13.2.1}%
+\contentsline {subsection}{\numberline {13.2.2}NVIDIA Isaac Sim -- photorealistisch und GPU-parallel}{28}{subsection.13.2.2}%
+\contentsline {section}{\numberline {13.3}Lassen sie sich integriert einsetzen?}{29}{section.13.3}%
+\contentsline {chapter}{\numberline {14}Wo sich Simulation und reale Implementierung trennen}{30}{chapter.14}%
+\contentsline {chapter}{\numberline {15}Vorabschritte: vom CAD-Modell zur Simulation}{31}{chapter.15}%
+\contentsline {section}{\numberline {15.1}Getrennte STL-Exporte pro Gelenk}{31}{section.15.1}%
+\contentsline {section}{\numberline {15.2}Gelenktypen}{32}{section.15.2}%
+\contentsline {section}{\numberline {15.3}Getriebeübersetzung in ros2\_control}{32}{section.15.3}%
+\contentsline {part}{V\hspace {1em}Die vier Projekte: Architektur und \texttt {\small rqt\_graph}}{33}{part.5}%
+\contentsline {chapter}{\numberline {16}Projekt 1 -- Stepper-Roboter mit Trajektorienbefehl vom PC}{34}{chapter.16}%
+\contentsline {section}{\numberline {16.1}ROS\,2-Bausteine}{34}{section.16.1}%
+\contentsline {section}{\numberline {16.2}rqt\_graph (vereinfacht)}{34}{section.16.2}%
+\contentsline {chapter}{\numberline {17}Projekt 2 -- Tischtennisroboter}{35}{chapter.17}%
+\contentsline {section}{\numberline {17.1}ROS\,2-Bausteine}{35}{section.17.1}%
+\contentsline {section}{\numberline {17.2}rqt\_graph (vereinfacht)}{35}{section.17.2}%
+\contentsline {chapter}{\numberline {18}Projekt 3 -- Mobiler Roboter: Odometrie, Navigation, Bewegungserkennung}{36}{chapter.18}%
+\contentsline {section}{\numberline {18.1}ROS\,2-Bausteine}{36}{section.18.1}%
+\contentsline {chapter}{\numberline {19}Projekt 4 -- CAD-basierte Posenerkennung und Greifen}{37}{chapter.19}%
+\contentsline {section}{\numberline {19.1}ROS\,2-Bausteine}{37}{section.19.1}%
+\contentsline {section}{\numberline {19.2}Zwei Wege zur 6D-Pose}{37}{section.19.2}%
+\contentsline {section}{\numberline {19.3}Inferenz-Pipeline (lernbasiert)}{38}{section.19.3}%
+\contentsline {section}{\numberline {19.4}Stereo als metrische Skala}{38}{section.19.4}%
+\contentsline {section}{\numberline {19.5}Bewegte Teile: Pose-Tracking mit Kalman}{38}{section.19.5}%
+\contentsline {section}{\numberline {19.6}Hyperparameter und Evaluation}{38}{section.19.6}%
+\contentsline {part}{VI\hspace {1em}Stereokamera in ROS\,2 -- Praxis mit Code}{40}{part.6}%
+\contentsline {chapter}{\numberline {20}Kamera anbinden, Frame splitten}{41}{chapter.20}%
+\contentsline {chapter}{\numberline {21}Kalibrieren und Tiefe erzeugen}{42}{chapter.21}%
+\contentsline {chapter}{\numberline {22}Kalman-Filter-Knoten (Ballverfolgung)}{43}{chapter.22}%
+\contentsline {chapter}{\numberline {23}Merkmalserkennung ohne KI-Training}{44}{chapter.23}%
+\contentsline {chapter}{\numberline {24}Echtzeit-Stereoverarbeitung: Scheduling, Frame-Dropping und Zustandsautomat}{45}{chapter.24}%
+\contentsline {section}{\numberline {24.1}Das Zeitbudget eines Frames}{45}{section.24.1}%
+\contentsline {section}{\numberline {24.2}Frame-Dropping: DDS macht die Arbeit}{46}{section.24.2}%
+\contentsline {section}{\numberline {24.3}Scheduling: Executor und Callback-Gruppen}{46}{section.24.3}%
+\contentsline {section}{\numberline {24.4}Ablauflogik als Zustandsautomat}{47}{section.24.4}%
+\contentsline {part}{VII\hspace {1em}Tischtennisroboter: Mechanik, Kamera-Architektur und CAD/URDF}{49}{part.7}%
+\contentsline {chapter}{\numberline {25}Kamera-Architektur -- wo wird gerechnet?}{50}{chapter.25}%
+\contentsline {section}{\numberline {25.1}Die Bandbreitenrechnung entscheidet}{50}{section.25.1}%
+\contentsline {section}{\numberline {25.2}Verdikt pro Plattform}{50}{section.25.2}%
+\contentsline {section}{\numberline {25.3}Sparse statt dense: der Ball braucht keine volle Tiefenkarte}{51}{section.25.3}%
+\contentsline {section}{\numberline {25.4}ROS-Service, UDP oder Topic?}{51}{section.25.4}%
+\contentsline {chapter}{\numberline {26}Mechanischer Aufbau: Portalsystem (Gantry)}{52}{chapter.26}%
+\contentsline {section}{\numberline {26.1}Grundkonzept}{52}{section.26.1}%
+\contentsline {section}{\numberline {26.2}Geschachtelte Achsen}{52}{section.26.2}%
+\contentsline {section}{\numberline {26.3}Antriebstopologie und Hardware-Anschluss}{52}{section.26.3}%
+\contentsline {chapter}{\numberline {27}Das Hebelarm- und Schwingungsproblem}{54}{chapter.27}%
+\contentsline {section}{\numberline {27.1}Die Physik}{54}{section.27.1}%
+\contentsline {section}{\numberline {27.2}Gegenmaßnahmen}{54}{section.27.2}%
+\contentsline {chapter}{\numberline {28}Simulierbarkeit in Gazebo und RViz}{56}{chapter.28}%
+\contentsline {section}{\numberline {28.1}Was Gazebo kann -- und was nicht}{56}{section.28.1}%
+\contentsline {section}{\numberline {28.2}Wege, die Nachgiebigkeit doch abzubilden}{56}{section.28.2}%
+\contentsline {chapter}{\numberline {29}CAD-Module und URDF}{58}{chapter.29}%
+\contentsline {section}{\numberline {29.1}Notwendige CAD-Module mit Designanforderungen}{58}{section.29.1}%
+\contentsline {section}{\numberline {29.2}Kinematische Kette}{58}{section.29.2}%
+\contentsline {section}{\numberline {29.3}URDF/Xacro-Gerüst}{58}{section.29.3}%
+\contentsline {part}{VIII\hspace {1em}Dokumentationsmethodik}{60}{part.8}%
+\contentsline {chapter}{\numberline {30}Vorgehensweise festhalten}{61}{chapter.30}%
+\contentsline {chapter}{Literaturverzeichnis}{62}{chapter*.3}%

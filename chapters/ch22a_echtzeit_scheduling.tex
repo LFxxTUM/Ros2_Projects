@@ -1,0 +1,207 @@
+% =============================================================
+%  ch22a_echtzeit_scheduling.tex  --  Echtzeit-Stereoverarbeitung:
+%  Zeitbudget, Frame-Dropping, Executor-Scheduling, Zustandsautomat
+% =============================================================
+
+\chapter{Echtzeit-Stereoverarbeitung: Scheduling, Frame-Dropping und Zustandsautomat}
+
+Der Balltracker ist \textbf{zeitkritisch}: Bei 60\,fps hast du pro Frame nur
+$\approx$\,16{,}7\,ms, um zu splitten, zu rektifizieren, den Ball in beiden
+Bildern zu finden, zu triangulieren und den Kalman-Filter zu aktualisieren.
+Dauert ein Frame länger, läuft die Verarbeitung der Realität hinterher. Dieses
+Kapitel zeigt, wie man damit umgeht: Frames gezielt verwerfen, die Prädiktion von
+der Messung entkoppeln und die Ablauflogik als Zustandsautomat strukturieren.
+
+\section{Das Zeitbudget eines Frames}
+Die Pipeline besteht aus Stufen mit je eigenem Latenzanteil:
+\begin{longtable}{@{}p{6.0cm}p{3.0cm}p{5.0cm}@{}}
+\toprule
+\textbf{Stufe} & \textbf{typ.\ Latenz} & \textbf{Anmerkung} \\
+\midrule
+Belichtung + USB-Transfer & 2--8\,ms & von der Kamera vorgegeben \\
+Split + Rektifizierung    & 1--3\,ms & einmalige Remap-LUT \\
+Balldetektion (sparse, beide Bilder) & 2--10\,ms & der teure, schwankende Teil \\
+Triangulation + KF-Update & $<$\,1\,ms & billig \\
+\bottomrule
+\end{longtable}
+
+\noindent Es gibt \textbf{zwei verschiedene Fehlermodi}, die man nicht verwechseln
+darf:
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[Latenz (zu alt).] Ein einzelner Frame ist verarbeitet, aber das Ergebnis
+  kommt zu spät -- die Schätzung beschreibt einen vergangenen Ballort.
+\item[Durchsatz (Stau).] Frames kommen schneller, als du sie verarbeitest. Ohne
+  Gegenmaßnahme wächst die Warteschlange unbegrenzt, und die Latenz steigt mit
+  jeder Sekunde weiter an (\emph{Bufferbloat}).
+\end{description}
+
+\begin{warnbox}[title=Die Kernregel für den Kalman-Filter]
+Ein \textbf{veralteter} Messwert ist schlechter als \emph{gar kein} Messwert. Der
+Filter kann über reine Prädiktion problemlos einige Frames überbrücken (vgl.\
+Kalman-Knoten). Also: lieber den alten Frame \textbf{verwerfen} und auf den
+nächsten aktuellen warten, als einen veralteten Messwert ins Update zu geben.
+\textbf{Niemals Frames aufstauen.}
+\end{warnbox}
+
+\section{Frame-Dropping: DDS macht die Arbeit}
+Der wichtigste Hebel ist die \textbf{QoS}: Mit \code{KEEP\_LAST}, Tiefe~1 und
+\code{BEST\_EFFORT} verwirft DDS selbst alte Bilder -- während dein Callback
+rechnet, überschreibt jeder neue Frame den wartenden, und du bekommst nach dem
+Callback stets den \emph{neuesten} statt des nächst-ältesten. Genau das ist das
+\code{sensor\_data}-QoS-Profil.
+
+\begin{lstlisting}[style=py,caption={QoS für Bild-Topics: nur der neueste Frame zählt}]
+from rclpy.qos import qos_profile_sensor_data
+# entspricht: BEST_EFFORT + KEEP_LAST + depth=1
+self.create_subscription(
+    Image, '/left/image_raw', self.on_frame, qos_profile_sensor_data,
+    callback_group=self.cb_detect)
+\end{lstlisting}
+
+\noindent\textbf{Warum nicht RELIABLE?} \code{RELIABLE} lässt DDS verlorene Frames
+neu senden -- bei einem Hochfrequenz-Bildstrom erzeugt das genau den Rückstau,
+den du vermeiden willst. \code{RELIABLE} gehört auf das \emph{Ergebnis} (die
+3D-Ballposition), \code{BEST\_EFFORT} auf den Bildstrom.
+
+\noindent Als zweite Verteidigungslinie verwirfst du im Callback explizit zu alte
+Frames anhand des Zeitstempels -- das fängt auch den Fall ab, dass DDS dir doch
+einen leicht veralteten Frame zustellt:
+\begin{lstlisting}[style=py,caption={Stale-Gating: Frame anhand seines Alters verwerfen}]
+def on_frame(self, msg):
+    now   = self.get_clock().now()
+    stamp = rclpy.time.Time.from_msg(msg.header.stamp)
+    age_s = (now - stamp).nanoseconds * 1e-9
+    if age_s > self.max_age_s:          # z. B. 0.020 s = ein Frame bei 60 fps
+        self.dropped += 1
+        return                          # verwerfen statt verspaetet verarbeiten
+    self.process(msg)                   # detektieren -> triangulieren -> KF-Update
+\end{lstlisting}
+
+\section{Scheduling: Executor und Callback-Gruppen}
+Standardmäßig serialisiert der \code{SingleThreadedExecutor} alle Callbacks: ein
+langsamer Detektions-Callback \textbf{blockiert dann auch den Prädiktions-Timer}.
+Für zeitkritischen Code trennst du die Anliegen über einen
+\code{MultiThreadedExecutor} und \textbf{Callback-Gruppen}:
+\begin{itemize}
+\item \code{MutuallyExclusiveCallbackGroup}: Callbacks dieser Gruppe laufen nie
+  gleichzeitig -- richtig für den CPU-gebundenen Detektor (eine Instanz zur Zeit,
+  zusammen mit Tiefe~1 ergibt das automatisches Frame-Dropping).
+\item Ein \emph{eigener} Timer-Callback in einer \emph{eigenen} Gruppe für die
+  Prädiktion -- so läuft sie in festem Takt weiter, selbst während die Detektion
+  noch an einem Frame rechnet.
+\end{itemize}
+
+\begin{lstlisting}[style=py,caption={Prädiktion und Detektion in getrennten Gruppen, parallel ausgeführt}]
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
+class Perception(Node):
+    def __init__(self):
+        super().__init__('perception')
+        self.cb_detect  = MutuallyExclusiveCallbackGroup()   # teuer, schwankend
+        self.cb_predict = MutuallyExclusiveCallbackGroup()   # billig, deterministisch
+        self.create_subscription(Image, '/left/image_raw', self.on_frame,
+                                 qos_profile_sensor_data, callback_group=self.cb_detect)
+        self.create_timer(1/120.0, self.predict, callback_group=self.cb_predict)
+
+def main():
+    rclpy.init()
+    node = Perception()
+    ex = MultiThreadedExecutor(num_threads=3)   # detect | predict | reserve
+    ex.add_node(node); ex.spin()
+\end{lstlisting}
+
+\noindent\textbf{Prädiktion schneller als die Kamera.} Der Predict-Timer darf
+ruhig mit 120\,Hz laufen, obwohl die Kamera nur 60\,fps liefert -- Prädiktion ist
+billig und liefert zwischen den Messungen eine glatte, aktuelle Schätzung. Die
+Messung (Update) kommt ereignisgesteuert, wann immer ein \emph{frischer}
+Frame durchkommt. Das ist genau die Predict/Update-Aufteilung aus dem Kalman-Knoten,
+nur sauber auf zwei Threads gelegt.
+
+\begin{infobox}[title=Veraltete und vertauschte Messungen (Out-of-Order)]
+Kommt eine Messung mit einem Zeitstempel \emph{vor} dem aktuellen Filterstand an
+(z.\,B.\ weil ein langsamer Detektions-Thread sie spät abliefert), sind zwei
+Wege sauber: (a) sie schlicht \textbf{verwerfen} (einfach, meist ausreichend),
+oder (b) ein \textbf{Out-of-Sequence-Update} -- Filter auf den Mess-Zeitpunkt
+zurückrollen, einarbeiten, wieder vorrollen. Für den Tischtennisball reicht~(a).
+Hilfreich, wenn linkes/rechtes Bild synchron sein müssen:
+\code{message\_filters.ApproximateTimeSynchronizer}.
+\end{infobox}
+
+\section{Ablauflogik als Zustandsautomat}
+Die Frage ``was tue ich pro Frame'' hängt vom \textbf{Zustand} ab: Solange kein
+Ball da ist, suchst du; sobald genug Punkte einer Flugbahn vorliegen, rechnest du
+den Auftreffpunkt; ist der Schlag ausgelöst, fährst du ihn ab. Diese Logik
+gehört nicht verstreut in den Bild-Callback, sondern in einen expliziten
+\textbf{Zustandsautomaten}, der die Wahrnehmungs-Rate von der Entscheidungs-Rate
+entkoppelt.
+
+\begin{center}
+\begin{tikzpicture}[node distance=15mm,every node/.style={font=\scriptsize}]
+\node[node] (s) {SEARCH\\\scriptsize jeden Frame, Ball suchen};
+\node[node,right=of s] (t) {TRACK\\\scriptsize KF-Update, Flugbahn sammeln};
+\node[node,right=of t] (i) {INTERCEPT\\\scriptsize Auftreffpunkt prädizieren};
+\node[node,below=10mm of i] (st) {STRIKE\\\scriptsize Trajektorie ausführen};
+\node[node,left=of st] (r) {RECOVER\\\scriptsize zurück in Grundstellung};
+\draw[flow] (s) -- node[topic,fill=white,inner sep=1pt]{\scriptsize Ball erkannt} (t);
+\draw[flow] (t) -- node[topic,fill=white,inner sep=1pt]{\scriptsize genug Punkte} (i);
+\draw[flow] (i) -- node[topic,fill=white,inner sep=1pt]{\scriptsize Schlagebene erreicht} (st);
+\draw[flow] (st) -- node[topic,fill=white,inner sep=1pt]{\scriptsize Schlag fertig} (r);
+\draw[flow] (r) -- node[topic,fill=white,inner sep=1pt]{\scriptsize bereit} (s);
+\draw[flow] (t) to[bend left=20] node[topic,fill=white,inner sep=1pt]{\scriptsize Ball verloren} (s);
+\end{tikzpicture}
+\captionof{figure}{Zustandsautomat des Balltrackers. Die Stereo-Detektion treibt
+die Übergänge; die Prädiktion läuft zustandsübergreifend im eigenen Timer weiter.}
+\end{center}
+
+\noindent\textbf{Umsetzung in ROS\,2 -- drei Stufen nach Komplexität:}
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[Eigenes \code{Enum} im Knoten.] Für eine überschaubare Logik wie diese das
+  Pragmatischste: ein Zustandsfeld plus \code{match}/\code{if}. Kein Framework,
+  voll unter Kontrolle.
+\item[YASMIN.] ROS\,2-native Zustandsmaschinen-Bibliothek (Python/C++) mit
+  Introspektion -- sinnvoll, wenn die Zustände wachsen.
+\item[Behavior Trees.] \code{BehaviorTree.CPP} (wie in Nav2) oder
+  \code{py\_trees\_ros} -- für komplexe, wiederverwendbare Verhaltensbäume mit
+  Fallbacks; für den reinen Balltracker meist überdimensioniert.
+\end{description}
+
+\begin{lstlisting}[style=py,caption={Zustandsautomat als Enum -- Entscheidung getrennt vom Bild-Callback}]
+from enum import Enum, auto
+
+class S(Enum):
+    SEARCH = auto(); TRACK = auto(); INTERCEPT = auto(); STRIKE = auto(); RECOVER = auto()
+
+class Brain(Node):
+    def __init__(self, kf):
+        super().__init__('brain')
+        self.kf = kf; self.state = S.SEARCH; self.hits = 0
+        # eigener Takt: Entscheidung entkoppelt von der Frame-Rate
+        self.create_timer(1/200.0, self.tick)
+
+    def on_measurement(self, ok):          # vom Detektor pro frischem Frame
+        self.hits = self.hits + 1 if ok else 0
+
+    def tick(self):
+        if self.state is S.SEARCH and self.hits > 0:
+            self.state = S.TRACK
+        elif self.state is S.TRACK:
+            if self.hits == 0:                       self.state = S.SEARCH   # Ball verloren
+            elif self.hits >= self.min_track:        self.state = S.INTERCEPT
+        elif self.state is S.INTERCEPT:
+            p = self.kf.predict_intercept(self.z_plane)   # reine Praediktion
+            if p is not None:
+                self.send_goal(p); self.state = S.STRIKE
+        elif self.state is S.STRIKE and self.motion_done():
+            self.state = S.RECOVER
+        elif self.state is S.RECOVER and self.at_home():
+            self.hits = 0; self.state = S.SEARCH
+\end{lstlisting}
+
+\begin{infobox}[title=Das Architektur-Prinzip in einem Satz]
+Drei entkoppelte Takte statt einer verschachtelten Schleife: \textbf{Detektion}
+(ereignisgesteuert, verwirft alte Frames per QoS), \textbf{Prädiktion}
+(schneller Timer, läuft immer), \textbf{Entscheidung} (eigener Timer, fährt den
+Zustandsautomaten) -- über einen \code{MultiThreadedExecutor} mit getrennten
+Callback-Gruppen, damit kein langsamer Frame die anderen beiden blockiert.
+\end{infobox}

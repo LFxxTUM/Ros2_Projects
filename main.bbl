@@ -17,6 +17,272 @@
 \endgroup
 
 \datalist[entry]{none/global//global/global/global}
+  \entry{haugaard2022surfemb}{inproceedings}{}{}
+    \name{author}{2}{}{%
+      {{hash=HRL}{%
+         family={Haugaard},
+         familyi={H\bibinitperiod},
+         given={Rasmus\bibnamedelima Laurvig},
+         giveni={R\bibinitperiod\bibinitdelim L\bibinitperiod},
+      }}%
+      {{hash=BAG}{%
+         family={Buch},
+         familyi={B\bibinitperiod},
+         given={Anders\bibnamedelima Glent},
+         giveni={A\bibinitperiod\bibinitdelim G\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{HRLBAG1}
+    \strng{fullhash}{HRLBAG1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition (CVPR)}
+    \field{title}{{SurfEmb}: Dense and Continuous Correspondence Distributions
+  for Object Pose Estimation with Learnt Surface Embeddings}
+    \field{year}{2022}
+  \endentry
+
+  \entry{zhou2019continuity}{inproceedings}{}{}
+    \name{author}{5}{}{%
+      {{hash=ZY}{%
+         family={Zhou},
+         familyi={Z\bibinitperiod},
+         given={Yi},
+         giveni={Y\bibinitperiod},
+      }}%
+      {{hash=BC}{%
+         family={Barnes},
+         familyi={B\bibinitperiod},
+         given={Connelly},
+         giveni={C\bibinitperiod},
+      }}%
+      {{hash=LJ}{%
+         family={Lu},
+         familyi={L\bibinitperiod},
+         given={Jingwan},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=YJ}{%
+         family={Yang},
+         familyi={Y\bibinitperiod},
+         given={Jimei},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=LH}{%
+         family={Li},
+         familyi={L\bibinitperiod},
+         given={Hao},
+         giveni={H\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{ZY+1}
+    \strng{fullhash}{ZYBCLJYJLH1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition (CVPR)}
+    \field{title}{On the Continuity of Rotation Representations in Neural
+  Networks}
+    \field{year}{2019}
+  \endentry
+
+  \entry{rusu2009fpfh}{inproceedings}{}{}
+    \name{author}{3}{}{%
+      {{hash=RRB}{%
+         family={Rusu},
+         familyi={R\bibinitperiod},
+         given={Radu\bibnamedelima Bogdan},
+         giveni={R\bibinitperiod\bibinitdelim B\bibinitperiod},
+      }}%
+      {{hash=BN}{%
+         family={Blodow},
+         familyi={B\bibinitperiod},
+         given={Nico},
+         giveni={N\bibinitperiod},
+      }}%
+      {{hash=BM}{%
+         family={Beetz},
+         familyi={B\bibinitperiod},
+         given={Michael},
+         giveni={M\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{RRBBNBM1}
+    \strng{fullhash}{RRBBNBM1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{IEEE International Conference on Robotics and Automation
+  (ICRA)}
+    \field{title}{Fast Point Feature Histograms ({FPFH}) for 3D Registration}
+    \field{year}{2009}
+  \endentry
+
+  \entry{besl1992icp}{article}{}{}
+    \name{author}{2}{}{%
+      {{hash=BPJ}{%
+         family={Besl},
+         familyi={B\bibinitperiod},
+         given={Paul\bibnamedelima J.},
+         giveni={P\bibinitperiod\bibinitdelim J\bibinitperiod},
+      }}%
+      {{hash=MND}{%
+         family={McKay},
+         familyi={M\bibinitperiod},
+         given={Neil\bibnamedelima D.},
+         giveni={N\bibinitperiod\bibinitdelim D\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{BPJMND1}
+    \strng{fullhash}{BPJMND1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{number}{2}
+    \field{pages}{239\bibrangedash 256}
+    \field{title}{A Method for Registration of 3-D Shapes}
+    \field{volume}{14}
+    \field{journaltitle}{IEEE Transactions on Pattern Analysis and Machine
+  Intelligence}
+    \field{year}{1992}
+  \endentry
+
+  \entry{yang2016goicp}{article}{}{}
+    \name{author}{4}{}{%
+      {{hash=YJ}{%
+         family={Yang},
+         familyi={Y\bibinitperiod},
+         given={Jiaolong},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=LH}{%
+         family={Li},
+         familyi={L\bibinitperiod},
+         given={Hongdong},
+         giveni={H\bibinitperiod},
+      }}%
+      {{hash=CD}{%
+         family={Campbell},
+         familyi={C\bibinitperiod},
+         given={Dylan},
+         giveni={D\bibinitperiod},
+      }}%
+      {{hash=JY}{%
+         family={Jia},
+         familyi={J\bibinitperiod},
+         given={Yunde},
+         giveni={Y\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{YJ+1}
+    \strng{fullhash}{YJLHCDJY1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{number}{11}
+    \field{pages}{2241\bibrangedash 2254}
+    \field{title}{{Go-ICP}: A Globally Optimal Solution to 3D {ICP} Point-Set
+  Registration}
+    \field{volume}{38}
+    \field{journaltitle}{IEEE Transactions on Pattern Analysis and Machine
+  Intelligence}
+    \field{year}{2016}
+  \endentry
+
+  \entry{qi2017pointnet}{inproceedings}{}{}
+    \name{author}{4}{}{%
+      {{hash=QCR}{%
+         family={Qi},
+         familyi={Q\bibinitperiod},
+         given={Charles\bibnamedelima R.},
+         giveni={C\bibinitperiod\bibinitdelim R\bibinitperiod},
+      }}%
+      {{hash=SH}{%
+         family={Su},
+         familyi={S\bibinitperiod},
+         given={Hao},
+         giveni={H\bibinitperiod},
+      }}%
+      {{hash=MK}{%
+         family={Mo},
+         familyi={M\bibinitperiod},
+         given={Kaichun},
+         giveni={K\bibinitperiod},
+      }}%
+      {{hash=GLJ}{%
+         family={Guibas},
+         familyi={G\bibinitperiod},
+         given={Leonidas\bibnamedelima J.},
+         giveni={L\bibinitperiod\bibinitdelim J\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{QCR+1}
+    \strng{fullhash}{QCRSHMKGLJ1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{IEEE/CVF Conference on Computer Vision and Pattern
+  Recognition (CVPR)}
+    \field{title}{{PointNet}: Deep Learning on Point Sets for 3D Classification
+  and Segmentation}
+    \field{year}{2017}
+  \endentry
+
+  \entry{qi2017pointnetpp}{inproceedings}{}{}
+    \name{author}{4}{}{%
+      {{hash=QCR}{%
+         family={Qi},
+         familyi={Q\bibinitperiod},
+         given={Charles\bibnamedelima R.},
+         giveni={C\bibinitperiod\bibinitdelim R\bibinitperiod},
+      }}%
+      {{hash=YL}{%
+         family={Yi},
+         familyi={Y\bibinitperiod},
+         given={Li},
+         giveni={L\bibinitperiod},
+      }}%
+      {{hash=SH}{%
+         family={Su},
+         familyi={S\bibinitperiod},
+         given={Hao},
+         giveni={H\bibinitperiod},
+      }}%
+      {{hash=GLJ}{%
+         family={Guibas},
+         familyi={G\bibinitperiod},
+         given={Leonidas\bibnamedelima J.},
+         giveni={L\bibinitperiod\bibinitdelim J\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{QCR+1}
+    \strng{fullhash}{QCRYLSHGLJ1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{Advances in Neural Information Processing Systems
+  (NeurIPS)}
+    \field{title}{{PointNet++}: Deep Hierarchical Feature Learning on Point
+  Sets in a Metric Space}
+    \field{year}{2017}
+  \endentry
+
+  \entry{hodan2018bop}{inproceedings}{}{}
+    \true{moreauthor}
+    \true{morelabelname}
+    \name{author}{1}{}{%
+      {{hash=HT}{%
+         family={Hoda{\v{n}}},
+         familyi={H\bibinitperiod},
+         given={Tom{\'a}{\v{s}}},
+         giveni={T\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{HT+1}
+    \strng{fullhash}{HT+1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{booktitle}{European Conference on Computer Vision (ECCV)}
+    \field{title}{{BOP}: Benchmark for 6D Object Pose Estimation}
+    \field{year}{2018}
+  \endentry
+
   \entry{todorov2012mujoco}{inproceedings}{}{}
     \name{author}{3}{}{%
       {{hash=TE}{%

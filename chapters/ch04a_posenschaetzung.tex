@@ -1,0 +1,231 @@
+% =============================================================
+%  ch04a_posenschaetzung.tex  --  6-DoF-Posenschätzung mit gelernten
+%  Surface Embeddings (theoretische Grundlagen für Projekt 4)
+% =============================================================
+
+\chapter{6-DoF-Posenschätzung mit gelernten Surface Embeddings}
+
+Dieses Kapitel vertieft die theoretischen Grundlagen hinter Projekt~4. Es baut
+direkt auf dem Stereosehen (Kapitel zuvor) auf: Dort wurde die 6D-Pose über
+klassische Merkmale (\code{PnP}, \code{ICP}) bestimmt; hier wird der moderne,
+lernbasierte Weg über \textbf{dichte Surface Embeddings} (in der Linie von
+\textbf{SurfEmb} \cite{haugaard2022surfemb}) entwickelt, der bei
+texturarmen, glänzenden oder symmetrischen Industrieteilen robuster ist.
+
+\section{Das Problem: sechs Freiheitsgrade}
+\textbf{6-DoF-Posenschätzung} bestimmt \emph{Position und Orientierung} eines
+bekannten Bauteils -- drei Translations- und drei Rotationsfreiheitsgrade.
+\textbf{Warum überhaupt?} Ein Werkstück liegt selten zweimal gleich (Schüttgut
+in Kisten, verschobene Vorrichtung, Förderband). Der Roboter muss das Teil
+\emph{sehen}, bevor er greift. Gesucht ist die starre Transformation, die das
+bekannte CAD-Modell in das Kamera-/Roboterkoordinatensystem überführt:
+\begin{equation}
+\boxed{\;\bm{p}_{\text{cam}} = \bm{R}\,\bm{p}_{\text{model}} + \bm{t}\;}
+\qquad \bm{R}\in SO(3),\;\; \bm{t}\in\mathbb{R}^3
+\end{equation}
+Die rücktransformierte (``ausgerichtete'') Punktwolke ist nur die visuelle
+Bestätigung -- das eigentliche Ergebnis ist $(\bm{R},\bm{t})$.
+
+\section{Rotationsrepräsentationen}
+Die Translation ist trivial ($\mathbb{R}^3$); die Rotation ist der heikle Teil,
+weil $SO(3)$ gekrümmt ist. Gängige Darstellungen mit ihren Fallstricken:
+\begin{longtable}{@{}p{3.6cm}p{10.6cm}@{}}
+\toprule
+\textbf{Darstellung} & \textbf{Eigenschaft / Fallstrick} \\
+\midrule
+Rotationsmatrix ($3{\times}3$) & 9 Zahlen, 6 Nebenbedingungen (orthonormal); redundant aber stabil \\
+Euler-Winkel              & nur 3 Zahlen, aber \textbf{Gimbal Lock} (Freiheitsgrad-Verlust) \\
+Quaternion                & 4 Zahlen, singularitätsfrei, aber \textbf{Double Cover} ($\bm{q}$ und $-\bm{q}$ = gleiche Drehung) \\
+Kontinuierliche 6D-Form   & beste Wahl für die \textbf{NN-Regression} -- stetig, keine Sprünge \cite{zhou2019continuity} \\
+\bottomrule
+\end{longtable}
+\noindent Für neuronale Netze ist die Stetigkeit entscheidend: Euler und
+Quaternion haben Unstetigkeiten, an denen das Netz schlecht lernt. Die
+6D-Darstellung (zwei Spaltenvektoren $\rightarrow$ Gram-Schmidt $\rightarrow$
+$\bm{R}$) ist überall stetig.
+
+\section{Warum gelernte Embeddings statt Regression}
+Zwei naive Wege scheitern in der Industrie:
+\begin{itemize}
+\item \textbf{Handgefertigte Deskriptoren} (\code{FPFH} \cite{rusu2009fpfh},
+  \code{SIFT}) versagen bei texturlosen, glänzenden, symmetrischen Teilen und
+  unter Verdeckung -- genau die typischen Fälle in der Fertigung.
+\item \textbf{Direkte Pose-Regression} (Netz $\rightarrow$ ein $(\bm{R},\bm{t})$)
+  nimmt \emph{eine} Antwort an (unimodal) und \textbf{bricht bei Symmetrie}: ein
+  symmetrisches Teil hat mehrere korrekte Posen, der Mittelwert ist falsch.
+\end{itemize}
+\textbf{Gelernte dichte Surface Embeddings} lösen beides: Ein Netz bildet jeden
+Oberflächenpunkt in einen Merkmalsraum ab; gemessene Punkte werden über die
+\emph{Nähe im Merkmalsraum} den Punkten des bekannten CAD-Modells zugeordnet.
+Statt einer Punktschätzung lernt das Modell eine \textbf{Verteilung} über
+Korrespondenzen -- Symmetrie wird implizit behandelt (mehrere Oberflächenpunkte
+teilen sich dann schlicht ein Embedding) \cite{haugaard2022surfemb}.
+
+\section{Kontrastives Lernen der Embeddings}
+Trainiert werden die Embeddings mit einem \textbf{kontrastiven Verlust}: wahre
+Pixel-$\leftrightarrow$-Punkt-Paare werden im Merkmalsraum zusammengezogen, alle
+anderen Paare auseinandergedrückt. Die \emph{Positiv}-Paare sind die unter
+bekannter Render-Pose bekannten Korrespondenzen, die \emph{Negativ}-Paare andere
+gesampelte Oberflächenpunkte. In InfoNCE-Form für ein Query-Embedding $\bm{q}$
+mit positivem Schlüssel $\bm{k}^+$:
+\begin{equation}
+\mathcal{L} = -\log
+\frac{\exp\!\big(\mathrm{sim}(\bm{q},\bm{k}^+)/\tau\big)}
+     {\sum_{j}\exp\!\big(\mathrm{sim}(\bm{q},\bm{k}_j)/\tau\big)}
+\end{equation}
+mit Kosinus-Ähnlichkeit $\mathrm{sim}(\cdot)$ und \textbf{Temperatur} $\tau$
+(Tuning-Größe). \textbf{Der Clou:} die Labels sind quasi gratis -- man rendert
+das CAD-Modell in bekannten Posen, womit Ground-Truth-Pose \emph{und}
+Korrespondenzen automatisch vorliegen; keine manuellen Symmetrie-Labels nötig.
+
+\section{Das Two-Tower-Modell (Query--Key)}
+Die Architektur besteht aus zwei getrennten Türmen, die erst im gemeinsamen
+Embedding-Raum zusammentreffen:
+\begin{itemize}
+\item \textbf{Query-Tower} -- \emph{Eingang:} Bildausschnitt (2D-Pixel, RGB/RGB-D);
+  \emph{Ausgang:} Embedding pro Pixel; \emph{Architektur:} großes
+  CNN-Encoder-Decoder-Netz (U-Net / ResNet).
+\item \textbf{Key-Tower} -- \emph{Eingang:} eine 3D-Oberflächenkoordinate
+  $(x,y,z)$ vom CAD; \emph{Ausgang:} Embedding dieses Punktes im selben Raum;
+  \emph{Architektur:} kleines MLP (wenige Schichten reichen, da der Eingang
+  simpel ist -- die \textbf{Asymmetrie} der Türme ist gewollt).
+\end{itemize}
+Beide werden \emph{gemeinsam} mit dem kontrastiven Verlust trainiert, sodass
+zusammengehörige Pixel- und Punkt-Embeddings nahe beieinander landen. Ein Turm
+spricht ``2D-Bild'', der andere ``3D-Oberfläche''; der gemeinsame Raum ist die
+gemeinsame Sprache.
+
+\begin{center}
+\begin{tikzpicture}[node distance=6mm,every node/.style={font=\scriptsize}]
+\node[node] (img) {Bildausschnitt\\2D-Pixel (RGB/RGB-D)};
+\node[node,below=of img] (cnn) {CNN Encoder-Decoder\\U-Net / ResNet (groß)};
+\node[node,below=of cnn] (pe) {Embedding pro Pixel};
+\node[node,fill=accent2!12,draw=accent2,right=42mm of img] (pt) {3D-Oberflächenpunkt\\$(x,y,z)$ vom CAD};
+\node[node,fill=accent2!12,draw=accent2,below=of pt] (mlp) {kleines MLP\\wenige Schichten};
+\node[node,fill=accent2!12,draw=accent2,below=of mlp] (ke) {Embedding pro Punkt};
+\node[node,fill=accent!18,below=12mm of $(pe)!0.5!(ke)$] (sh)
+  {Gemeinsamer Embedding-Raum\\\itshape gemeinsam via kontrastivem Verlust trainiert};
+\node[node,below=8mm of sh] (out)
+  {Nächsten-Nachbarn-Matching\\dichte 2D-3D-Korrespondenzen $\rightarrow$ \code{PnP}+\code{RANSAC} $\rightarrow$ $(\bm{R},\bm{t})$};
+\draw[flow] (img)--(cnn); \draw[flow] (cnn)--(pe);
+\draw[flow] (pt)--(mlp);  \draw[flow] (mlp)--(ke);
+\draw[flow] (pe)--(sh);   \draw[flow] (ke)--(sh);
+\draw[flow] (sh)--(out);
+\node[font=\scriptsize\bfseries,accent] at ($(cnn)+(0,1.0)$) {Query-Tower};
+\node[font=\scriptsize\bfseries,accent2] at ($(mlp)+(0,1.0)$) {Key-Tower};
+\end{tikzpicture}
+\captionof{figure}{Two-Tower-Modell: die Türme bleiben getrennt bis zum
+gemeinsamen Embedding-Raum -- genau diese Trennung \emph{ist} die Architektur.
+Bei der Inferenz wird jedes Pixel-Embedding seinem nächsten
+Oberflächenpunkt-Embedding zugeordnet.}
+\end{center}
+
+\section{Von Korrespondenzen zur Pose: PnP + RANSAC}
+Aus den dichten 2D-3D-Korrespondenzen wird die Pose über \textbf{Perspective-n-Point}
+(\code{PnP}) gelöst -- die $(\bm{R},\bm{t})$, die die 3D-Modellpunkte $\bm{P}_i$
+auf die beobachteten Pixel $\bm{u}_i$ projiziert:
+\begin{equation}
+(\bm{R},\bm{t}) = \arg\min_{\bm{R},\bm{t}}
+\sum_i \big\lVert \bm{u}_i - \pi\!\big(\bm{K}(\bm{R}\bm{P}_i + \bm{t})\big)\big\rVert^2
+\end{equation}
+mit Projektion $\pi(\cdot)$ und Intrinsik $\bm{K}$. \textbf{RANSAC} umhüllt das
+Ganze und verwirft Ausreißer-Korrespondenzen (zieht zufällige minimale Mengen,
+zählt Inlier, behält das beste Modell). Bei reinen 3D-3D-Daten tritt an die
+Stelle der Reprojektion die euklidische Punktdistanz.
+
+\section{Registrierung: grob und fein}
+Eine \emph{einstufige} Registrierung ist unzuverlässig; Standard sind
+\textbf{zwei Stufen}:
+\begin{enumerate}
+\item \textbf{Grob (global):} liefert die ``richtige Größenordnung'' aus
+  Merkmalen -- Deskriptoren auf Quelle und Modell matchen, grobes
+  $(\bm{R},\bm{t})$ lösen (z.\,B.\ \code{SAC-IA} + \code{FPFH}). Braucht
+  \emph{keine} gute Startschätzung, ist aber nur näherungsweise.
+\item \textbf{Fein = ICP} (\emph{Iterative Closest Point}
+  \cite{besl1992icp}): zu jedem Quellpunkt den nächsten Zielpunkt suchen, die
+  Gesamtdistanz minimieren, wiederholen bis zur Konvergenz:
+  \begin{equation}
+  E(\bm{R},\bm{t}) = \sum_i \big\lVert \bm{R}\,\bm{p}_i + \bm{t} - \bm{q}_{c(i)}\big\rVert^2,
+  \qquad c(i)=\text{nächster Nachbar}
+  \end{equation}
+  Genau, aber nur \textbf{lokal}.
+\end{enumerate}
+\textbf{ICP-Schwächen:} (1) \emph{lokale Minima} -- es läuft bergab und bleibt
+stecken; (2) \emph{initialisierungsabhängig} -- es funktioniert nur bei nahem
+Start (daher läuft die Grobstufe zuerst). \textbf{Go-ICP}
+\cite{yang2016goicp} garantiert das globale Optimum, indem es ganz $SE(3)$ (alle
+starren Transformationen) per \emph{Branch-and-Bound} durchsucht: Raum
+aufteilen, Fehler je Region beschränken, Regionen verwerfen, die nicht gewinnen
+können -- langsamer, aber global optimal.
+
+\section{Punktwolken-Netze: PointNet und PointNet++}
+Verarbeitet man die Punktwolke direkt mit einem Netz, ist die zentrale
+Schwierigkeit: eine Punktwolke ist eine \textbf{ungeordnete Menge} -- der Ausgang
+darf nicht von der Reihenfolge abhängen (\textbf{Permutationsinvarianz}).
+\begin{itemize}
+\item \textbf{PointNet} \cite{qi2017pointnet}: dasselbe geteilte MLP auf jeden
+  Punkt, dann \textbf{Max-Pooling} (symmetrisch = reihenfolgeunabhängig). Erfasst
+  die \emph{globale} Form, verpasst aber lokale Details.
+\item \textbf{PointNet++} \cite{qi2017pointnetpp}: wendet PointNet
+  \emph{lokal} in Stufen an -- Zentren samplen (Farthest-Point-Sampling),
+  Nachbarschaften gruppieren (Multi-Scale-Radien), lokale Merkmale extrahieren,
+  auf größerer Skala wiederholen. Baut lokal + global hierarchisch auf, ähnlich
+  einem CNN.
+\end{itemize}
+
+\section{Stereo, Tiefe und Skalierung}
+\textbf{Warum Stereo?} Eine Mono-Kamera hat \emph{Skalenmehrdeutigkeit}
+(klein-nah $\approx$ groß-fern). Stereo liefert Tiefe und löst die Skala -- über
+Disparität, Basislinie und Brennweite (Triangulation, vgl.\ Stereo-Kapitel).
+Zwei Wege in die Pipeline:
+\begin{enumerate}[label=(\alph*)]
+\item Tiefe als \textbf{Zusatzkanal} = RGB-D-Eingang, oder
+\item Tiefe + Intrinsik \textbf{rückprojizieren} $\rightarrow$ Punktwolke
+  $\rightarrow$ 3D-3D-Registrierung.
+\end{enumerate}
+\textbf{Vorverarbeitung} (vor dem Netz, ja): Kalibrierung (Intrinsik +
+Extrinsik) und Rektifizierung, Tiefen-Entrauschung, Umgang mit ungültiger Tiefe
+(glänzendes Metall liefert schlechte Tiefenwerte). \textbf{Auszahlung:} die
+Tiefe gibt \emph{metrische} Skala -- $(\bm{R},\bm{t})$ in echten Millimetern, mit
+denen der Roboter handeln kann.
+
+\section{Zeitliche Konsistenz: Kalman-Pose-Tracking}
+Eine bildweise geschätzte Pose ist verrauscht/zittrig. Ein \textbf{Kalman-Filter}
+ergänzt \emph{zeitliche Konsistenz} (vgl.\ Kapitel zu Kalman/EKF): der
+\emph{Zustand} ist die Pose (ggf.\ plus Geschwindigkeit), die \emph{Messung} ist
+die bildweise Netz-Pose. Prädiktion der nächsten Pose $\rightarrow$ Korrektur mit
+der neuen Schätzung. Das \textbf{glättet Jitter, verwirft Ausreißer-Frames und
+überbrückt kurze Verdeckung / ausgefallene Detektionen} -- aus Einzelschuss wird
+\emph{Tracking}, relevant für bewegtes Förderband oder armmontierte Kamera. Da
+Rotationen nichtlinear sind, nutzt man EKF/UKF oder filtert auf einer geeigneten
+Rotationsdarstellung.
+
+\section{Sim-to-Real und Trainingsdaten}
+Da die Labels durch Rendern des CAD-Modells praktisch gratis entstehen, wird
+synthetisch trainiert -- aber es klafft ein \textbf{Sim-to-Real-Gap}
+(synthetisch $\rightarrow$ real: Rauschen, Beleuchtung, Reflektanz). Gegenmittel:
+\textbf{Domain Randomization}, physikalisch-basiertes Rendering (PBR, z.\,B.\ via
+Isaac Sim, vgl.\ Kapitel zu Simulationswerkzeugen) und ein kleiner realer
+Feintuning-Datensatz.
+
+\section{Benchmarking und Metriken}
+\begin{longtable}{@{}p{3.8cm}p{10.4cm}@{}}
+\toprule
+\textbf{Größe} & \textbf{Bedeutung} \\
+\midrule
+\textbf{ADD / ADD-S}     & mittlerer Punktabstand Modell$\leftrightarrow$Schätzung; ADD-S nutzt nächsten Punkt (für \emph{symmetrische} Teile) \\
+Rotations-/Translationsfehler & geodätisch (Rotation) bzw.\ euklidisch (Translation), dazu RMSE \\
+\textbf{BOP}-Metriken    & VSD, MSSD, MSPD $\rightarrow$ Average Recall \cite{hodan2018bop} \\
+Industrie-KPIs           & Taktzeit/Latenz, Pick-Erfolgsrate, Falsch-Positiv-Rate \\
+Datensätze               & BOP-Suite, speziell \textbf{T-LESS} und \textbf{ITODD} (texturlos/industriell) \\
+\bottomrule
+\end{longtable}
+
+\begin{infobox}[title=Kernaussage in einem Satz]
+6-DoF-Posenschätzung über gelernte Surface Embeddings ersetzt fragile
+handgefertigte Deskriptoren durch ein \emph{Zwei-Turm-Netz}, das Pixel und
+CAD-Oberflächenpunkte in einen gemeinsamen Merkmalsraum abbildet; das dichte
+Korrespondenz-Matching liefert über \code{PnP}+\code{RANSAC} (optional
+ICP-verfeinert) die starre Transformation $(\bm{R},\bm{t})$ -- robust auch bei
+texturlosen, glänzenden und symmetrischen Teilen.
+\end{infobox}

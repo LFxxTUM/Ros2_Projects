@@ -13,6 +13,8 @@ Reallocating 'name_of_file' (item size: 1) to 28 items.
 A level-1 auxiliary file: chapters/ch03_odometrie.aux
 Reallocating 'name_of_file' (item size: 1) to 30 items.
 A level-1 auxiliary file: chapters/ch04_stereosehen.aux
+Reallocating 'name_of_file' (item size: 1) to 35 items.
+A level-1 auxiliary file: chapters/ch04a_posenschaetzung.aux
 Reallocating 'name_of_file' (item size: 1) to 28 items.
 A level-1 auxiliary file: chapters/ch05_kinematik.aux
 Reallocating 'name_of_file' (item size: 1) to 33 items.
@@ -49,6 +51,8 @@ Reallocating 'name_of_file' (item size: 1) to 32 items.
 A level-1 auxiliary file: chapters/ch21_kalman_knoten.aux
 Reallocating 'name_of_file' (item size: 1) to 36 items.
 A level-1 auxiliary file: chapters/ch22_merkmalserkennung.aux
+Reallocating 'name_of_file' (item size: 1) to 39 items.
+A level-1 auxiliary file: chapters/ch22a_echtzeit_scheduling.aux
 Reallocating 'name_of_file' (item size: 1) to 37 items.
 A level-1 auxiliary file: chapters/ch23_kamera_architektur.aux
 Reallocating 'name_of_file' (item size: 1) to 31 items.
@@ -81,44 +85,44 @@ Database file #2: back/bibliography.bib
 Biblatex version: 3.21
 Reallocating 'wiz_functions' (item size: 4) to 9000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
-You've used 5 entries,
+You've used 13 entries,
             6402 wiz_defined-function locations,
-            1251 strings with 10376 characters,
-and the built_in function-call counts, 19829 in all, are:
-= -- 1299
-> -- 412
-< -- 77
-+ -- 511
-- -- 163
-* -- 1199
-:= -- 2242
+            1293 strings with 11903 characters,
+and the built_in function-call counts, 90498 in all, are:
+= -- 7371
+> -- 1204
+< -- 226
++ -- 2659
+- -- 478
+* -- 6271
+:= -- 10821
 add.period$ -- 0
-call.type$ -- 5
-change.case$ -- 28
+call.type$ -- 13
+change.case$ -- 84
 chr.to.int$ -- 42
-cite$ -- 8
-duplicate$ -- 2145
-empty$ -- 1838
-format.name$ -- 212
-if$ -- 4116
+cite$ -- 24
+duplicate$ -- 9496
+empty$ -- 7965
+format.name$ -- 786
+if$ -- 18086
 int.to.chr$ -- 0
-int.to.str$ -- 8
+int.to.str$ -- 25
 missing$ -- 0
-newline$ -- 107
-num.names$ -- 152
-pop$ -- 1417
+newline$ -- 361
+num.names$ -- 459
+pop$ -- 4454
 preamble$ -- 1
-purify$ -- 46
+purify$ -- 164
 quote$ -- 0
-skip$ -- 665
+skip$ -- 1893
 stack$ -- 0
-substring$ -- 2049
-swap$ -- 419
-text.length$ -- 102
+substring$ -- 13758
+swap$ -- 1480
+text.length$ -- 276
 text.prefix$ -- 0
 top$ -- 1
-type$ -- 158
+type$ -- 430
 warning$ -- 0
-while$ -- 304
+while$ -- 1321
 width$ -- 0
-write$ -- 103
+write$ -- 349
