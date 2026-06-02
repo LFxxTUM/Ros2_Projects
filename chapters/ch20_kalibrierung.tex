@@ -3,6 +3,49 @@
 % =============================================================
 
 \chapter{Kalibrieren und Tiefe erzeugen}
+\label{ch:kalibrierung}
+
+\section{Warum kalibrieren? Das Kameramodell}
+Die Kalibrierung bestimmt die \textbf{Intrinsik} (Brennweiten $f_x,f_y$,
+Hauptpunkt $c_x,c_y$, zusammengefasst in $\bm{K}$), die
+\textbf{Verzeichnungskoeffizienten} (radial $k_1,k_2,k_3$ und tangential
+$p_1,p_2$) und bei Stereo zusätzlich die \textbf{Extrinsik} -- die starre
+Transformation $(\bm{R},\bm{t})$ zwischen linker und rechter Linse. Erst diese
+Parameter machen aus Pixeln metrische Strahlen: Sie sind die Voraussetzung für
+Rektifizierung, Disparität und damit jede Tiefenmessung (vgl.\
+Kapitel~\ref{ch:stereosehen}).
+
+\textbf{Das Verfahren} (Zhang-Methode, wie in OpenCV implementiert
+\cite{opencv_calib}): Ein \emph{Schachbrettmuster} bekannter Geometrie wird in
+vielen Lagen aufgenommen. Da die 3D-Koordinaten der Ecken im Brett-System
+bekannt sind und ihre 2D-Pixelpositionen detektiert werden
+(\code{cv2.findChessboardCorners}, Abb.~\ref{fig:stereo_camera_calibration}),
+entsteht ein großes System von 2D-3D-Korrespondenzen. Daraus löst ein
+Optimierer (Minimierung des Reprojektionsfehlers über alle Bilder und Ecken)
+Intrinsik und Verzeichnung. Faustregeln:
+\begin{itemize}
+\item \textbf{Viele Ansichten} (15--30), das Brett in unterschiedlichen
+  Abständen, Winkeln und Bildregionen -- gekippte Ansichten sind nötig, um die
+  Brennweite von der Distanz zu trennen.
+\item \textbf{Reprojektionsfehler} als Gütemaß: deutlich unter $1\,$px ist gut.
+\item Bei Stereo wird nach den beiden Einzelkalibrierungen die Extrinsik
+  geschätzt; schon kleine Fehler darin skalieren systematisch in die
+  Objektgenauigkeit (Maßstab, absolute Position) hinein
+  \cite{kahmen2020stereocalib}.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.4\textwidth]{stereo_camera_calibration}
+  \caption{Detektiertes Schachbrettmuster während der Kalibrierung: Die farbig
+  markierten, in fester Reihenfolge verbundenen Innenecken liefern die
+  2D-Bildpunkte, deren 3D-Lage im Brett-System bekannt ist. Aus vielen solchen
+  Ansichten schätzt der Optimierer Intrinsik, Verzeichnung und (bei Stereo) die
+  Extrinsik. Nach \cite{opencv_calib}.}
+  \label{fig:stereo_camera_calibration}
+\end{figure}
+
+\section{Kalibrierung und Tiefenpipeline in ROS\,2}
 
 \begin{lstlisting}[style=bash,caption={Stereokalibrierung (Schachbrett) und Tiefenpipeline}]
 # Kalibrieren: erzeugt left.yaml / right.yaml

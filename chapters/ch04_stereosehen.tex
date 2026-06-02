@@ -3,6 +3,7 @@
 % =============================================================
 
 \chapter{Stereosehen und Merkmalserkennung}
+\label{ch:stereosehen}
 
 \section{Lochkameramodell und Tiefe aus Disparität}
 Eine kalibrierte Kamera bildet einen 3D-Punkt über die Intrinsik-Matrix $\bm{K}$
@@ -25,11 +26,15 @@ Epipolarlinien horizontal), typisch mit \code{StereoBM} (schnell) oder
 \section{Kalibrierung}
 Beide Kameras müssen kalibriert werden (Intrinsik + Verzerrung) und zueinander
 (Extrinsik: $\bm{R},\bm{t}$ zwischen den Linsen). Standard ist ein
-Schachbrettmuster und das ROS\,2-Paket \code{camera\_calibration} aus dem
+Schachbrettmuster \cite{opencv_calib} und das ROS\,2-Paket
+\code{camera\_calibration} aus dem
 \code{image\_pipeline}. Ergebnis sind \code{.yaml}-Dateien, die der Treiber
 lädt. \textbf{Ohne saubere Kalibrierung ist jede Tiefenmessung wertlos} -- das
 ist der erste reale Stolperstein gegenüber der Simulation, wo die ``Kamera''
-perfekt kalibriert ist.
+perfekt kalibriert ist. Schon kleine Kalibrierfehler skalieren systematisch in
+die Objektgenauigkeit hinein \cite{kahmen2020stereocalib}; die praktische
+Durchführung samt detektiertem Schachbrettmuster ist in
+Kapitel~\ref{ch:kalibrierung} ausgeführt.
 
 \section{Merkmalserkennung ohne eigenes KI-Training}
 Es gibt ausgereifte \emph{klassische} Detektoren, die ohne Trainingsdaten und
@@ -48,7 +53,9 @@ Bildpunkte (Ecken, Blobs) und beschreiben deren lokale Umgebung:
 \noindent Alle sind in OpenCV enthalten (\code{cv2.ORB\_create()} usw.) und über
 \code{cv\_bridge} in ROS\,2 nutzbar. Das Matching erfolgt mit \code{BFMatcher}
 (Brute Force) oder \code{FLANN}, gefolgt von Ausreißerfilterung
-(Lowe-Ratio-Test, RANSAC). Für \textbf{Bewegungserkennung} (Projekt~3) brauchst
+(Lowe-Ratio-Test, RANSAC). Eine quantitative Gegenüberstellung von Genauigkeit
+und Geschwindigkeit dieser Detektoren findet sich in
+Kapitel~\ref{ch:merkmalserkennung} \cite{tareen2018comparative}. Für \textbf{Bewegungserkennung} (Projekt~3) brauchst
 du nicht einmal Merkmale: Hintergrundsubtraktion
 (\code{cv2.createBackgroundSubtractorMOG2}) oder optischer Fluss
 (\code{calcOpticalFlowFarneback}) reichen.

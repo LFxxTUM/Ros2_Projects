@@ -1,0 +1,400 @@
+% =============================================================
+%  ch29_machine_learning.tex  --  Klassisches ML & Deep Learning in ROS 2
+% =============================================================
+
+\chapter{Maschinelles Lernen in ROS\,2-Projekten}
+\label{ch:machine_learning}
+
+Kapitel~\ref{ch:merkmalserkennung} hat gezeigt, wie weit man in der
+Bildverarbeitung \emph{ohne} Training kommt. Dieses Kapitel ergänzt die andere
+Seite: \textbf{wann} sich maschinelles Lernen (ML) in einem ROS\,2-Roboter
+lohnt, \textbf{wie} man Trainings- und Inferenzcode sauber von den ROS-Knoten
+trennt und \textbf{womit} -- scikit-learn, SciPy, TensorFlow, PyTorch -- die
+gängigen Verfahren (Regression, Clustering, Bayes, Autoencoder, ANN, CNN, PINN)
+konkret angebunden werden. Der Anspruch ist nicht ein ML-Lehrbuch, sondern eine
+\emph{Entscheidungs- und Integrationshilfe} für genau diese Roboterprojekte.
+
+% -----------------------------------------------------------------
+\section{Wann ML -- und wann nicht}
+% -----------------------------------------------------------------
+ML ist kein Selbstzweck. Die teuerste Fehlentscheidung ist, ein neuronales Netz
+auf ein Problem zu werfen, das ein Kalman-Filter (Kap.~\ref{ch:merkmalserkennung}
+hinweg zu Kap.~2) oder eine geschlossene Formel exakter, schneller und
+nachvollziehbarer löst. Die nüchterne Faustregel:
+
+\begin{infobox}[title={Faustregel: klassisch vor lernend}]
+Gibt es ein \emph{physikalisches Modell} oder eine \emph{geometrische
+Beziehung} (Kinematik, Projektion, Filtergleichung), nutze sie. Greife zu ML
+erst, wenn (a) das Modell unbekannt oder zu komplex ist, (b) genügend
+\emph{repräsentative Daten} vorliegen und (c) du den Inferenzaufwand im
+Echtzeitbudget unterbringst.
+\end{infobox}
+
+\noindent Konkrete Anwendungsfälle in den Projekten dieses Buchs:
+
+\begin{longtable}{@{}p{3.6cm}p{4.3cm}p{6.6cm}@{}}
+\toprule
+\textbf{Aufgabe} & \textbf{Klassisch reicht} & \textbf{ML lohnt sich, weil \ldots} \\
+\midrule
+Ball-/Objekt\-erkennung
+  & Hintergrundsubtraktion, Farbschwelle, ORB
+  & wechselnde Beleuchtung, Verdeckung, viele Objektklassen $\rightarrow$ \textbf{CNN}-Detektor \\
+Flugbahn des Balls
+  & ballistisches Modell + EKF
+  & Magnus-Effekt/Spin schwer zu modellieren $\rightarrow$ \textbf{Regression/PINN} als Korrektur \\
+Inverse Kinematik
+  & analytisch/numerisch (Kap.~5)
+  & redundante/elastische Mechanik, schnelle Näherung $\rightarrow$ \textbf{ANN} \\
+Punktwolken-Seg\-mentierung
+  & RANSAC-Ebene, Schwellwert
+  & unstrukturierte Szene, mehrere Cluster $\rightarrow$ \textbf{Clustering} (DBSCAN) \\
+Zustands\-/Anomalie\-überwachung
+  & feste Schwellen
+  & ``normal'' ist mehrdimensional und schwer zu fixieren $\rightarrow$ \textbf{Autoencoder} \\
+Sensor\-kalibrierung
+  & Least-Squares (SciPy)
+  & nichtlineare, unbekannte Kennlinie mit Unsicherheit $\rightarrow$ \textbf{Gauß-Prozess} \\
+\bottomrule
+\end{longtable}
+
+% -----------------------------------------------------------------
+\section{Architektur: Training offline, Inferenz im Knoten}
+% -----------------------------------------------------------------
+Die wichtigste Designentscheidung ist die \textbf{Trennung von Training und
+Inferenz}. Training ist datenintensiv, läuft batchweise auf einem Entwickler-PC
+(gern mit GPU) und produziert eine \emph{Artefaktdatei} (Gewichte). Der
+ROS\,2-Knoten lädt dieses Artefakt \emph{einmal} beim Hochfahren und führt im
+Callback nur noch günstige Vorwärts-Inferenz aus.
+
+\begin{center}
+\begin{tikzpicture}[node distance=7mm and 16mm]
+\node[node] (data) {Datensatz\\\scriptsize (rosbag2, Bilder, CSV)};
+\node[node,right=of data] (train) {Training\\\scriptsize PyTorch/TF/sklearn (PC, GPU)};
+\node[node,right=of train] (art) {Artefakt\\\scriptsize .pt / .onnx / .pkl};
+\node[node,below=12mm of art] (node) {ML-Knote\\\code{ball\_detector}};
+\node[topic,left=of node] (in) {/camera/image};
+\node[topic,below=8mm of node] (out) {/ball/pose};
+\draw[flow] (data) -- (train);
+\draw[flow] (train) -- (art);
+\draw[flow] (art) -- node[right,font=\scriptsize]{load() bei Start} (node);
+\draw[flow] (in) -- node[above,font=\scriptsize]{Subscriber} (node);
+\draw[flow] (node) -- node[right,font=\scriptsize]{Publisher} (out);
+\draw[flow,dashed,accent2] (out) to[bend left=30]
+  node[below,font=\scriptsize\itshape]{neue Daten sammeln} (data);
+\end{tikzpicture}
+\captionof{figure}{Offline-Training erzeugt ein Artefakt; der ROS\,2-Knoten lädt
+es einmalig und betreibt nur noch Inferenz. Gesammelte Echtdaten fließen ins
+nächste Training zurück.}
+\end{center}
+
+\begin{warnbox}[title={Inferenz nie im Spin-Thread blockieren}]
+Ein \code{model(x)}-Aufruf kann zehn bis hunderte Millisekunden dauern. Läuft er
+direkt im Subscriber-Callback des Standard-Executors, blockiert er alle anderen
+Callbacks. Lege Inferenz in eine \textbf{eigene Callback-Group}
+(\code{MutuallyExclusiveCallbackGroup}) mit \code{MultiThreadedExecutor} oder in
+einen separaten Worker-Thread und veröffentliche das Ergebnis asynchron
+(vgl.\ Kap.~\ref{ch:merkmalserkennung} zum Echtzeit-Scheduling).
+\end{warnbox}
+
+\begin{lstlisting}[style=py,caption={Grundgerüst eines Inferenz-Knotens (framework-agnostisch)}]
+import rclpy
+from rclpy.node import Node
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from sensor_msgs.msg import Image
+from geometry_msgs.msg import PointStamped
+from cv_bridge import CvBridge
+
+class BallDetector(Node):
+    def __init__(self):
+        super().__init__('ball_detector')
+        # Modell EINMALIG laden (Pfad als ROS-Parameter):
+        self.declare_parameter('model_path', 'model.onnx')
+        path = self.get_parameter('model_path').value
+        self.model = self.load_model(path)   # framework-spezifisch, s.u.
+        self.bridge = CvBridge()
+        cb = MutuallyExclusiveCallbackGroup()
+        self.sub = self.create_subscription(
+            Image, '/camera/image', self.on_image, 10, callback_group=cb)
+        self.pub = self.create_publisher(PointStamped, '/ball/pose', 10)
+
+    def on_image(self, msg):
+        img = self.bridge.imgmsg_to_cv2(msg, 'rgb8')
+        u, v, conf = self.infer(self.model, img)   # reine Vorwaertsinferenz
+        if conf < 0.5:
+            return
+        out = PointStamped()
+        out.header = msg.header                     # gleiche Zeit/Frame!
+        out.point.x, out.point.y = float(u), float(v)
+        self.pub.publish(out)
+\end{lstlisting}
+
+\noindent Drei Regeln, die in jedem ML-Knoten gelten sollten:
+\begin{itemize}
+\item \textbf{Modellpfad als Parameter}, nie hartkodiert -- so wechselt man
+  Gewichte ohne Neukompilieren.
+\item \textbf{Header übernehmen} (\code{stamp}, \code{frame\_id}): nur so passen
+  Detektionen zeitlich zu \code{/tf} und lassen sich an einen EKF füttern.
+\item \textbf{Konfidenz mitschätzen} und schwache Detektionen verwerfen statt zu
+  raten.
+\end{itemize}
+
+% -----------------------------------------------------------------
+\section{Die vier Bibliotheken und ihre Rolle}
+% -----------------------------------------------------------------
+\begin{longtable}{@{}p{2.7cm}p{4.0cm}p{7.8cm}@{}}
+\toprule
+\textbf{Bibliothek} & \textbf{Stärke} & \textbf{Rolle im ROS\,2-Projekt} \\
+\midrule
+\textbf{SciPy} & numerische Mathematik
+  & Optimierung (\code{least\_squares}, \code{curve\_fit}), Filter
+    (\code{signal}), Interpolation, lineare Algebra -- die Basis unter allem
+    anderen, oft schon ausreichend. \\
+\textbf{scikit-learn} & klassisches ML, ``flach''
+  & Regression, Clustering, PCA, SVM, Gauß-Prozesse, Vorverarbeitung
+    (\code{StandardScaler}, \code{Pipeline}). CPU, Modelle als
+    \code{.pkl}/\code{joblib}. Erste Wahl bei tabellarischen/kleinen Daten. \\
+\textbf{PyTorch} & Deep Learning, Forschung
+  & ANN, CNN, Autoencoder, PINN. Dynamischer Graph, \code{torch.autograd}
+    (wichtig für PINN), Export nach \code{.pt} oder ONNX. \\
+\textbf{TensorFlow} & Deep Learning, Deployment
+  & wie PyTorch; stark in \code{tf.keras} und Edge-Deployment
+    (TF-Lite auf Raspberry Pi/Jetson). \\
+\bottomrule
+\end{longtable}
+
+\begin{infobox}[title={Installation \& Workspace}]
+Die ML-Pakete gehören \emph{nicht} in den ROS-Sourcetree. Üblich:
+ein Python-\code{venv} oder \code{conda}-Env, in dem sowohl die ROS-Python-API
+(über \code{rclpy}) als auch \code{torch}/\code{tensorflow} sichtbar sind.
+In \code{package.xml} deklariert man die Abhängigkeiten via
+\code{<exec\_depend>python3-scikit-learn</exec\_depend>} bzw.\ \code{rosdep};
+große Frameworks (Torch/TF) installiert man per \code{pip} im Env und hält sie
+aus \code{rosdep} heraus. \textbf{ONNX Runtime} ist der pragmatische
+gemeinsame Nenner: in PyTorch/TF trainieren, nach \code{.onnx} exportieren, im
+Knoten nur \code{onnxruntime} laden -- so muss der Roboter weder Torch noch TF
+mitschleppen.
+\end{infobox}
+
+% -----------------------------------------------------------------
+\section{Klassisches ML mit SciPy \& scikit-learn}
+% -----------------------------------------------------------------
+
+\subsection{Regression -- Kennlinien und Vorhersage}
+Regression schätzt eine kontinuierliche Größe. Zwei typische Einsätze:
+nichtlineare \emph{Sensorkalibrierung} mit SciPy und eine lernende
+\emph{Trajektorienkorrektur} mit scikit-learn.
+
+\begin{lstlisting}[style=py,caption={Nichtlineare Kalibrierkurve mit SciPy curve\_fit}]
+import numpy as np
+from scipy.optimize import curve_fit
+
+# Modell: Distanz d aus Rohwert r eines IR-Sensors (1/r-Kennlinie)
+def model(r, a, b, c):
+    return a / (r + b) + c
+
+popt, pcov = curve_fit(model, r_raw, d_true, p0=[1.0, 0.0, 0.0])
+# popt -> in YAML speichern, im Knoten als feste Parameter laden:
+d_pred = model(r_live, *popt)
+\end{lstlisting}
+
+\begin{lstlisting}[style=py,caption={Polynomiale Regression (sklearn-Pipeline)}]
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.linear_model import Ridge
+import joblib
+
+# X: [Spin, Anstellwinkel, v0]  ->  y: Auftreffpunkt auf dem Tisch
+reg = make_pipeline(StandardScaler(),
+                    PolynomialFeatures(degree=2),
+                    Ridge(alpha=1.0))
+reg.fit(X_train, y_train)
+joblib.dump(reg, 'landing_model.pkl')      # Artefakt fuer den Knoten
+\end{lstlisting}
+
+\subsection{Clustering -- Punktwolken und Objekte gruppieren}
+Clustering ist \emph{unüberwacht}: keine Labels nötig. \code{DBSCAN} ist für
+Robotik oft besser als \code{KMeans}, weil es die Clusterzahl nicht vorab
+braucht und Rauschen explizit als Ausreißer markiert -- ideal, um aus einer
+Tiefenpunktwolke Objekte zu trennen.
+
+\begin{lstlisting}[style=py,caption={DBSCAN-Segmentierung einer Punktwolke}]
+from sklearn.cluster import DBSCAN
+import numpy as np
+
+# pts: Nx3-Array aus sensor_msgs/PointCloud2
+labels = DBSCAN(eps=0.05, min_samples=20).fit_predict(pts)
+for k in set(labels):
+    if k == -1:            # -1 = Rauschen
+        continue
+    cluster = pts[labels == k]
+    centroid = cluster.mean(axis=0)   # -> als Objektkandidat publizieren
+\end{lstlisting}
+
+\subsection{Bayes \& Gauß-Prozesse -- Schätzen mit Unsicherheit}
+Der bayessche Blick liefert nicht nur einen Wert, sondern eine
+\emph{Verteilung}. Genau das passt zu Robotik, wo der EKF (Kap.~2) bereits
+bayessch denkt. Ein \textbf{Gauß-Prozess} (GP) ist die elegante Form der
+Regression \emph{mit} Konfidenzband: dort, wo wenig Daten liegen, wächst die
+Unsicherheit -- ein direkt nutzbares Signal, um vorsichtig zu fahren.
+
+\begin{lstlisting}[style=py,caption={Gauß-Prozess-Regression mit Unsicherheit (sklearn)}]
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+
+kernel = RBF(length_scale=1.0) + WhiteKernel(noise_level=1e-2)
+gp = GaussianProcessRegressor(kernel=kernel, normalize_y=True)
+gp.fit(X_train, y_train)
+
+mu, sigma = gp.predict(X_query, return_std=True)
+# sigma -> als Messrausch-Kovarianz direkt an den EKF weiterreichen
+\end{lstlisting}
+
+\noindent Der \textbf{naive Bayes}-Klassifikator (\code{sklearn.naive\_bayes})
+bleibt die schnellste Baseline für diskrete Klassifikation (z.\,B.\ Zustand
+``Greifer voll/leer'' aus wenigen Merkmalen) und eignet sich als
+Vergleichsmaßstab, bevor man zu neuronalen Netzen greift.
+
+% -----------------------------------------------------------------
+\section{Neuronale Netze mit PyTorch}
+% -----------------------------------------------------------------
+
+\subsection{ANN (MLP) -- gelernte inverse Kinematik}
+Ein mehrschichtiges Perzeptron (Multi-Layer Perceptron, MLP) approximiert
+beliebige glatte Funktionen. Sinnvoll, wenn die analytische inverse Kinematik
+mehrdeutig oder die reale Mechanik elastisch ist: das Netz liefert in
+konstanter Zeit eine gute Startnäherung, die ein numerischer Schritt verfeinert.
+
+\begin{lstlisting}[style=py,caption={MLP fuer inverse Kinematik (PyTorch)}]
+import torch, torch.nn as nn
+
+class IKNet(nn.Module):
+    def __init__(self, n_in=3, n_out=4):   # (x,y,z) -> 4 Gelenkwinkel
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_in, 128), nn.ReLU(),
+            nn.Linear(128, 128),  nn.ReLU(),
+            nn.Linear(128, n_out))
+    def forward(self, x):
+        return self.net(x)
+
+model = IKNet()
+opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+loss_fn = nn.MSELoss()
+for xb, yb in loader:                       # Training (offline, PC)
+    opt.zero_grad()
+    loss = loss_fn(model(xb), yb)
+    loss.backward(); opt.step()
+torch.save(model.state_dict(), 'ik_net.pt') # Artefakt
+\end{lstlisting}
+
+\subsection{CNN -- Objekt- und Ball-Erkennung}
+Faltungsnetze (Convolutional Neural Networks) sind der Standard, sobald aus
+\emph{Bildern} gelernt wird. Praktisch trainiert man selten von Null, sondern
+nutzt \textbf{Transfer Learning}: ein vortrainiertes Backbone (z.\,B.\ ein
+schlankes YOLO/MobileNet) wird auf die eigenen wenigen Objektklassen
+feinjustiert. Im Knoten zählt nur die Inferenzlatenz -- daher Export nach ONNX
+und Ausführung über \code{onnxruntime} (CPU/GPU/TensorRT).
+
+\begin{lstlisting}[style=py,caption={CNN-Inferenz im Knoten via ONNX Runtime}]
+import onnxruntime as ort
+import numpy as np
+
+class CNNDetector:
+    def __init__(self, path):
+        self.sess = ort.InferenceSession(
+            path, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        self.inp = self.sess.get_inputs()[0].name
+
+    def infer(self, img_rgb):                # img: HxWx3, uint8
+        x = img_rgb.astype(np.float32).transpose(2, 0, 1)[None] / 255.0
+        boxes, scores, classes = self.sess.run(None, {self.inp: x})
+        return boxes, scores, classes
+\end{lstlisting}
+
+\subsection{Autoencoder -- Anomalie- und Zustandsüberwachung}
+Ein Autoencoder lernt, seine Eingabe komprimiert zu rekonstruieren. Trainiert
+\emph{nur auf Normalbetrieb}, steigt der Rekonstruktionsfehler bei
+Anomalien -- ein label-freier Wächter für Vibrationen, Stromaufnahme oder
+Gelenkmoment, der Defekte meldet, bevor feste Schwellen anschlagen.
+
+\begin{lstlisting}[style=py,caption={Autoencoder zur Anomalieerkennung (PyTorch)}]
+import torch, torch.nn as nn
+
+class AE(nn.Module):
+    def __init__(self, d):
+        super().__init__()
+        self.enc = nn.Sequential(nn.Linear(d, 16), nn.ReLU(), nn.Linear(16, 4))
+        self.dec = nn.Sequential(nn.Linear(4, 16), nn.ReLU(), nn.Linear(16, d))
+    def forward(self, x):
+        return self.dec(self.enc(x))
+
+# Im Knoten: Fehler gegen Schwelle aus dem Training (z.B. 99%-Quantil)
+def is_anomaly(model, x, thresh):
+    with torch.no_grad():
+        err = ((model(x) - x) ** 2).mean().item()
+    return err > thresh, err
+\end{lstlisting}
+
+\subsection{PINN -- physik-informierte Netze}
+Ein \textbf{Physics-Informed Neural Network} (PINN) verbindet beide Welten: Die
+Verlustfunktion bestraft nicht nur die Datenabweichung, sondern auch die
+Verletzung einer bekannten \emph{Differentialgleichung}. Für die Ballflugbahn
+mit Luftwiderstand und Magnus-Effekt heißt das: Das Netz $\bm{x}(t)$ wird so
+trainiert, dass es zu den Messpunkten passt \emph{und} die Bewegungsgleichung
+$m\ddot{\bm{x}} = \bm{F}_g + \bm{F}_{\text{drag}} + \bm{F}_{\text{magnus}}$
+erfüllt. Vorteil: physikalisch plausible Vorhersagen auch mit wenigen Daten.
+Der Schlüssel ist \code{torch.autograd.grad}, das die Zeitableitungen
+$\dot{\bm{x}}, \ddot{\bm{x}}$ exakt aus dem Netz liefert.
+
+\begin{lstlisting}[style=py,caption={PINN-Residuum fuer eine Bewegungsgleichung (PyTorch)}]
+import torch
+
+def physics_residual(net, t, m, g):
+    t = t.requires_grad_(True)
+    x = net(t)                                   # Position(t), z.B. Hoehe
+    v = torch.autograd.grad(x, t, torch.ones_like(x), create_graph=True)[0]
+    a = torch.autograd.grad(v, t, torch.ones_like(v), create_graph=True)[0]
+    # ODE-Residuum:  m*a + drag(v) - (-m*g) = 0  -> hier vereinfacht ohne drag
+    return m * a + m * g
+
+# Gesamtverlust = Daten-MSE + lambda * mean(residual^2)
+loss = mse(net(t_data), x_data) + lam * (physics_residual(net, t_col, m, g)**2).mean()
+\end{lstlisting}
+
+% -----------------------------------------------------------------
+\section{Verfahren-Wegweiser}
+% -----------------------------------------------------------------
+\begin{longtable}{@{}p{2.6cm}p{2.8cm}p{3.0cm}p{5.4cm}@{}}
+\toprule
+\textbf{Verfahren} & \textbf{Typ} & \textbf{Werkzeug} & \textbf{Wofür im Roboter} \\
+\midrule
+Least-Squares / \code{curve\_fit} & Fit & SciPy &
+  Kalibrierung, Modellabgleich \\
+Lineare/Ridge-Regression & überwacht & scikit-learn &
+  einfache Vorhersage, Baseline \\
+Gauß-Prozess & überwacht, bayessch & scikit-learn &
+  Regression \emph{mit} Unsicherheit für den EKF \\
+Naive Bayes / SVM & überwacht & scikit-learn &
+  schnelle Klassifikation weniger Merkmale \\
+KMeans / DBSCAN & unüberwacht & scikit-learn &
+  Punktwolken-/Objektsegmentierung \\
+PCA & unüberwacht & scikit-learn &
+  Dimensionsreduktion, Merkmalsanalyse \\
+MLP (ANN) & überwacht, tief & PyTorch/TF &
+  gelernte IK, nichtlineare Regelung \\
+CNN & überwacht, tief & PyTorch/TF + ONNX &
+  Bild-/Objekt-/Ballerkennung \\
+Autoencoder & unüberwacht, tief & PyTorch/TF &
+  Anomalie-/Zustandsüberwachung \\
+PINN & hybrid & PyTorch &
+  Trajektorie mit Physik-Nebenbedingung \\
+\bottomrule
+\end{longtable}
+
+\begin{infobox}[title={Kernbotschaft}]
+Maschinelles Lernen ist in ROS\,2 kein Bruch, sondern ein weiterer Knoten:
+\emph{offline lernen, ein Artefakt exportieren, im Lifecycle-Knoten laden,
+Inferenz aus dem kritischen Pfad heraushalten und Ergebnisse mit korrektem
+Header publizieren}. Beginne mit SciPy/scikit-learn; greife zu PyTorch/TF erst,
+wenn Bilder, hohe Dimensionen oder Physik-Nebenbedingungen es erzwingen.
+\end{infobox}

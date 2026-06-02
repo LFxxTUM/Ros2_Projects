@@ -17,6 +17,8 @@ Reallocating 'name_of_file' (item size: 1) to 35 items.
 A level-1 auxiliary file: chapters/ch04a_posenschaetzung.aux
 Reallocating 'name_of_file' (item size: 1) to 28 items.
 A level-1 auxiliary file: chapters/ch05_kinematik.aux
+Reallocating 'name_of_file' (item size: 1) to 36 items.
+A level-1 auxiliary file: chapters/ch05a_regelungstechnik.aux
 Reallocating 'name_of_file' (item size: 1) to 33 items.
 A level-1 auxiliary file: chapters/ch06_schrittmotoren.aux
 Reallocating 'name_of_file' (item size: 1) to 34 items.
@@ -53,6 +55,8 @@ Reallocating 'name_of_file' (item size: 1) to 36 items.
 A level-1 auxiliary file: chapters/ch22_merkmalserkennung.aux
 Reallocating 'name_of_file' (item size: 1) to 39 items.
 A level-1 auxiliary file: chapters/ch22a_echtzeit_scheduling.aux
+Reallocating 'name_of_file' (item size: 1) to 35 items.
+A level-1 auxiliary file: chapters/ch29_machine_learning.aux
 Reallocating 'name_of_file' (item size: 1) to 37 items.
 A level-1 auxiliary file: chapters/ch23_kamera_architektur.aux
 Reallocating 'name_of_file' (item size: 1) to 31 items.
@@ -85,44 +89,44 @@ Database file #2: back/bibliography.bib
 Biblatex version: 3.21
 Reallocating 'wiz_functions' (item size: 4) to 9000 items.
 Reallocating 'singl_function' (item size: 4) to 100 items.
-You've used 13 entries,
+You've used 24 entries,
             6402 wiz_defined-function locations,
-            1293 strings with 11903 characters,
-and the built_in function-call counts, 90498 in all, are:
-= -- 7371
-> -- 1204
-< -- 226
-+ -- 2659
-- -- 478
-* -- 6271
-:= -- 10821
+            1356 strings with 14062 characters,
+and the built_in function-call counts, 164060 in all, are:
+= -- 13144
+> -- 2251
+< -- 442
++ -- 4819
+- -- 883
+* -- 11306
+:= -- 19216
 add.period$ -- 0
-call.type$ -- 13
-change.case$ -- 84
+call.type$ -- 24
+change.case$ -- 175
 chr.to.int$ -- 42
-cite$ -- 24
-duplicate$ -- 9496
-empty$ -- 7965
-format.name$ -- 786
-if$ -- 18086
+cite$ -- 46
+duplicate$ -- 17659
+empty$ -- 14492
+format.name$ -- 1481
+if$ -- 32826
 int.to.chr$ -- 0
-int.to.str$ -- 25
+int.to.str$ -- 49
 missing$ -- 0
-newline$ -- 361
-num.names$ -- 459
-pop$ -- 4454
+newline$ -- 685
+num.names$ -- 895
+pop$ -- 8398
 preamble$ -- 1
-purify$ -- 164
+purify$ -- 323
 quote$ -- 0
-skip$ -- 1893
+skip$ -- 3656
 stack$ -- 0
-substring$ -- 13758
-swap$ -- 1480
-text.length$ -- 276
+substring$ -- 24021
+swap$ -- 2881
+text.length$ -- 505
 text.prefix$ -- 0
 top$ -- 1
-type$ -- 430
+type$ -- 804
 warning$ -- 0
-while$ -- 1321
+while$ -- 2373
 width$ -- 0
-write$ -- 349
+write$ -- 662

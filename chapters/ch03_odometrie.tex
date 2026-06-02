@@ -20,3 +20,136 @@ In ROS\,2 ist \textbf{\code{robot\_localization}} das Standardpaket: ein
 visuelle Odom) zu einer konsistenten \code{odom}$\rightarrow$\code{base\_link}-Transformation.
 Drift wird später durch SLAM/Loop-Closure korrigiert
 (\code{map}$\rightarrow$\code{odom}).
+
+% -------------------------------------------------------------
+\section{Radodometrie: Pose-Integration aus Encoder-Ticks}
+\label{sec:wheel_odometry}
+Die Radodometrie ist die billigste und am weitesten verbreitete Quelle für die
+Eigenbewegung: zwei Drehgeber (Encoder) zählen, wie weit sich das linke und das
+rechte Rad gedreht haben, und daraus rekonstruiert man die Bewegung des
+Fahrzeugmittelpunkts. Der Grundgedanke ist eine \textbf{Bogen-Approximation}:
+Zwischen zwei Abtastschritten fährt jedes Rad ein kurzes Kreisbogenstück um ein
+gemeinsames \emph{Momentanzentrum} $C$ (Instantaneous Center of Rotation, ICR).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.62\textwidth]{wheel_odometry}
+  \caption{Geometrie der Radodometrie: Zwischen Anfangspose $(X_i,Y_i,\Psi_i)$
+  und Endpose $(X_f,Y_f,\Psi_f)$ legen linkes, mittleres und rechtes Rad die
+  Bogenstücke $\Delta d_l$, $\Delta d_c$, $\Delta d_r$ um das Momentanzentrum
+  $C$ zurück. Die unterschiedlichen Radradien $R_{\text{left}}$,
+  $R_{\text{center}}$, $R_{\text{right}}$ erzeugen die Kursänderung $\Delta\Psi$.
+  Nach \cite{barzegar2021wheel}.}
+  \label{fig:wheel_odometry}
+\end{figure}
+
+\noindent Aus den Encoder-Ticks erhält man die zurückgelegten Bogenlängen
+$\Delta d_l$ (links) und $\Delta d_r$ (rechts). Bei der Radspurbreite $b$
+(Abstand der Räder) ergeben sich die mittlere Strecke und die Drehung zu:
+\begin{equation}
+\Delta d_c = \frac{\Delta d_r + \Delta d_l}{2},
+\qquad
+\Delta\Psi = \frac{\Delta d_r - \Delta d_l}{b}
+\end{equation}
+Die neue Pose folgt durch Integration entlang des Bogens (Mittelpunktsregel):
+\begin{equation}
+\begin{aligned}
+X_f &= X_i + \Delta d_c \cos\!\Big(\Psi_i + \tfrac{\Delta\Psi}{2}\Big), \\
+Y_f &= Y_i + \Delta d_c \sin\!\Big(\Psi_i + \tfrac{\Delta\Psi}{2}\Big), \\
+\Psi_f &= \Psi_i + \Delta\Psi.
+\end{aligned}
+\end{equation}
+\textbf{Warum driftet das?} Jeder Schritt addiert seinen Fehler zum Zustand --
+die Schätzung ist \emph{rein integrativ}, ohne absoluten Bezug. Radschlupf,
+ungenaue Radradien, eine falsch gemessene Spurbreite $b$ und die endliche
+Encoder-Auflösung akkumulieren sich. Besonders teuer sind \textbf{Drehfehler}:
+ein kleiner Fehler in $\Delta\Psi$ wird über die folgende Fahrstrecke zu einem
+großen Positionsfehler gehebelt. In GNSS-freien Umgebungen wird die
+Radodometrie deshalb mit visuell-inertialen Messungen per EKF fusioniert
+\cite{barzegar2021wheel} -- die Radodometrie liefert den \emph{metrischen
+Maßstab}, die anderen Sensoren korrigieren den Drift.
+
+% -------------------------------------------------------------
+\section{Visuelle Odometrie (VO)}
+\label{sec:visual_odometry}
+\textbf{Visuelle Odometrie} schätzt die inkrementelle Kamerabewegung aus dem
+optischen Strom markanter Bildmerkmale. Sie hat keinen mechanischen Schlupf und
+driftet daher anders (und oft langsamer) als die Radodometrie, ist dafür aber
+empfindlich gegen Textur-Armut, Bewegungsunschärfe und schlechte Beleuchtung
+\cite{deshmukh2023vo}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.82\textwidth]{visual_odometry}
+  \caption{3D-2D-Bewegungsschätzung in der visuellen Odometrie: Gegeben sind die
+  3D-Weltkoordinaten der Merkmale aus Frame $k{-}1$ und ihre 2D-Bildkoordinaten
+  in Frame $k$. Über die Kameraprojektion $s\,\bm{u}=\bm{K}\,[\bm{R}\,|\,\bm{t}]\,\bm{X}$
+  mit der aus der Kalibrierung bekannten Intrinsik $\bm{K}$ wird die relative
+  Pose $[\bm{R}\,|\,\bm{t}]$ zwischen den Kamerazentren $C_{k-1}$ und $C_k$
+  geschätzt. Nach \cite{leon_vo}.}
+  \label{fig:visual_odometry}
+\end{figure}
+
+\noindent Die typische \textbf{VO-Pipeline} pro Frame:
+\begin{enumerate}
+\item \textbf{Merkmale erkennen} (ORB, SIFT, FAST -- vgl.\
+  Kapitel~\ref{ch:stereosehen}) und über aufeinanderfolgende Frames
+  \textbf{verfolgen} (Matching oder optischer Fluss).
+\item \textbf{Ausreißer filtern} (Lowe-Ratio-Test, \code{RANSAC}) -- bewegte
+  Objekte und Fehlzuordnungen müssen raus.
+\item \textbf{Relative Pose schätzen.} Mit \emph{bekannter} Tiefe (Stereo oder
+  RGB-D) wird das zum \textbf{3D-2D-Problem} und über
+  \code{PnP}+\code{RANSAC} gelöst (Abb.~\ref{fig:visual_odometry}). Bei
+  Mono-VO liefert die Essential-Matrix nur eine Pose \emph{bis auf Skalierung}.
+\item \textbf{Pose akkumulieren} und optional über eine lokale Bündelausgleichung
+  (Bundle Adjustment) verfeinern.
+\end{enumerate}
+\textbf{Der Stereo-Vorteil:} Da die Tiefe pro Merkmal aus der Disparität bekannt
+ist (vgl.\ Stereo-Kapitel~\ref{ch:stereosehen}), gibt es keine
+Skalenmehrdeutigkeit -- die geschätzte Translation ist sofort metrisch. Die
+verbleibende Schwäche ist der \emph{akkumulierte Drift}, gegen den erst ein
+Loop-Closure (SLAM) oder die Fusion mit weiteren Sensoren hilft
+\cite{deshmukh2023vo}.
+
+% -------------------------------------------------------------
+\section{Visual-Inertial Odometry (VIO)}
+\label{sec:vio}
+\textbf{VIO} fusioniert die visuelle Odometrie mit einer \textbf{IMU}
+(Beschleunigungsmesser + Gyroskop). Die beiden Sensoren ergänzen sich
+komplementär: Die Kamera liefert genaue, aber langsame und (bei Mono)
+skalenmehrdeutige Posen; die IMU liefert hochfrequente Bewegungsinformation und
+löst über die gemessene Erdbeschleunigung die \textbf{metrische Skala} sowie die
+absolute Neigung (Roll/Pitch), driftet aber bei reiner Integration schnell weg.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.78\textwidth]{visual_inertial_odometry}
+  \caption{VIO-Messmodell über ein gleitendes Fenster von Kameraposen
+  $c_1,c_2,c_3$ und IMU-Körperposen $b_1,b_2,b_3$. Jedes Merkmal $\bm{f}_j$ wird
+  in mehreren Bildern als visuelle Messung $\bm{z}^{c_i}_{f_j}$ beobachtet;
+  zwischen den Bildzeitpunkten verbinden \emph{vorintegrierte} IMU-Messungen
+  $\bm{z}_{b_ib_{i+1}}$ die Posen. Die gemeinsame Optimierung beider
+  Messtypen ergibt die fusionierte Trajektorie. Nach \cite{godio2022vio}.}
+  \label{fig:vio}
+\end{figure}
+
+\noindent Zwei Fusionsphilosophien sind gebräuchlich:
+\begin{itemize}
+\item \textbf{Filterbasiert (loosely/tightly coupled EKF):} Ein EKF prädiziert
+  den Zustand (Pose, Geschwindigkeit, IMU-Biases) mit der IMU und korrigiert ihn
+  mit den visuellen Messungen. So arbeitet das ROS\,2-Paket
+  \code{robot\_localization} und der in \cite{barzegar2021wheel} beschriebene
+  Aufbau, der VIO zusätzlich mit Radodometrie verschmilzt.
+\item \textbf{Optimierungsbasiert (Sliding-Window-Bundle-Adjustment):} Über ein
+  gleitendes Fenster werden Kameraposen, Merkmale und \textbf{vorintegrierte}
+  IMU-Faktoren \emph{gemeinsam} optimiert (Abb.~\ref{fig:vio}). Die
+  \emph{IMU-Vorintegration} fasst viele hochfrequente IMU-Messungen zwischen
+  zwei Bildern zu einem einzigen Bewegungsfaktor zusammen -- das macht die
+  Optimierung handhabbar. Semi-direkte Verfahren wie SVO gehören hierher
+  \cite{godio2022vio}.
+\end{itemize}
+\textbf{Praktische Auszahlung:} VIO ist robuster und glatter als VO allein,
+übersteht kurze textur- oder merkmalsarme Phasen (die IMU überbrückt sie) und
+liefert eine metrisch skalierte, neigungsstabile Trajektorie -- die Grundlage
+für die \code{odom}$\rightarrow$\code{base\_link}-Transformation in
+GNSS-freien Innenräumen \cite{godio2022vio, barzegar2021wheel}.

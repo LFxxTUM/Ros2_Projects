@@ -3,6 +3,38 @@
 % =============================================================
 
 \chapter{Merkmalserkennung ohne KI-Training}
+\label{ch:merkmalserkennung}
+
+\section{Detektoren im Vergleich: SIFT, SURF, KAZE, AKAZE, ORB, BRISK}
+Bevor wir Code schreiben, lohnt der nüchterne Vergleich der klassischen
+Detektor-Deskriptor-Paare. Sie durchlaufen alle dieselben Stufen --
+Merkmalsdetektion und -beschreibung, Matching, Ausreißerverwerfung
+(Lowe-Ratio + RANSAC) und Schätzung der Transformation -- unterscheiden sich
+aber stark in Genauigkeit und Geschwindigkeit \cite{tareen2018comparative}:
+\begin{itemize}
+\item \textbf{SIFT} und \textbf{KAZE/AKAZE} liefern die \emph{genauesten},
+  invariantesten Matches (Skala, Rotation, Blickwinkel), sind aber rechenintensiver.
+\item \textbf{ORB} und \textbf{BRISK} verwenden \emph{binäre} Deskriptoren mit
+  Hamming-Matching und sind dadurch am \emph{schnellsten} und sparsamsten --
+  ideal für Echtzeit auf schwacher Hardware, zum Preis etwas geringerer
+  Robustheit. ORB findet zudem typischerweise die meisten Merkmale pro Bild.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\textwidth]{image_detection}
+  \caption{Merkmalsdetektion, Matching und Bildregistrierung derselben Szene mit
+  SIFT, SURF, KAZE, AKAZE, ORB und BRISK (Zeilen). Die Detektoren unterscheiden
+  sich deutlich in Anzahl und Verteilung der gefundenen Merkmale sowie in der
+  Matching-Qualität; SIFT/AKAZE gelten als am genauesten, ORB/BRISK als am
+  effizientesten. Nach \cite{tareen2018comparative}.}
+  \label{fig:image_detection}
+\end{figure}
+
+\noindent \textbf{Faustregel für dieses Projekt:} ORB als Standardwahl für
+Echtzeit-Matching und visuelle Odometrie, SIFT/AKAZE, wenn es bei der
+CAD-Posenschätzung auf maximale Genauigkeit ankommt. Der folgende Code zeigt
+die ORB-Variante exemplarisch.
 
 \begin{lstlisting}[style=py,caption={ORB-Erkennung und Matching (klassisch, kein Training nötig)}]
 import cv2

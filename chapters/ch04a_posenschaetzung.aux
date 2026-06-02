@@ -3,28 +3,39 @@
 \gdef \LT@iii {\LT@entry 
     {1}{108.43008pt}\LT@entry 
     {1}{307.59938pt}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {5}6-DoF-Posenschätzung mit gelernten Surface Embeddings}{10}{chapter.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {5}6-DoF-Posenschätzung mit gelernten Surface Embeddings}{13}{chapter.5}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {section}{\numberline {5.1}Das Problem: sechs Freiheitsgrade}{10}{section.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.2}Rotationsrepräsentationen}{10}{section.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.3}Warum gelernte Embeddings statt Regression}{11}{section.5.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.4}Kontrastives Lernen der Embeddings}{11}{section.5.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.5}Das Two-Tower-Modell (Query--Key)}{11}{section.5.5}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {5.1}{\ignorespaces Two-Tower-Modell: die Türme bleiben getrennt bis zum gemeinsamen Embedding-Raum -- genau diese Trennung \emph  {ist} die Architektur. Bei der Inferenz wird jedes Pixel-Embedding seinem nächsten Oberflächenpunkt-Embedding zugeordnet.}}{12}{figure.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.6}Von Korrespondenzen zur Pose: PnP + RANSAC}{12}{section.5.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.7}Registrierung: grob und fein}{12}{section.5.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.1}Das Problem: sechs Freiheitsgrade}{13}{section.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.2}Rotationsrepräsentationen}{13}{section.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.3}Warum gelernte Embeddings statt Regression}{14}{section.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.4}Kontrastives Lernen der Embeddings}{14}{section.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.5}Das Two-Tower-Modell (Query--Key)}{14}{section.5.5}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5.1}{\ignorespaces Two-Tower-Modell: die Türme bleiben getrennt bis zum gemeinsamen Embedding-Raum -- genau diese Trennung \emph  {ist} die Architektur. Bei der Inferenz wird jedes Pixel-Embedding seinem nächsten Oberflächenpunkt-Embedding zugeordnet.}}{15}{figure.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.6}Von Korrespondenzen zur Pose: PnP}{15}{section.5.6}\protected@file@percent }
+\newlabel{sec:pnp}{{5.6}{15}{Von Korrespondenzen zur Pose: PnP}{section.5.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.7}Robuste Schätzung: RANSAC}{15}{section.5.7}\protected@file@percent }
+\newlabel{sec:ransac}{{5.7}{15}{Robuste Schätzung: RANSAC}{section.5.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5.2}{\ignorespaces Koordinatensysteme der \texttt  {\small  PnP}-Posenschätzung: Ein Weltpunkt $\bm  {P}$ wird über die Außenorientierung $[\bm  {R},\bm  {t}]$ ins Kamerasystem $O_c$, dann über die Brennweite $f$ auf die normalisierte Bildebene und schließlich über die Intrinsik (Hauptpunkt $(u_0,v_0)$) in Pixelkoordinaten abgebildet. \texttt  {\small  PnP} löst die Umkehrung: aus Punkt-Pixel-Paaren und bekanntem $\bm  {K}$ die gesuchte Pose $[\bm  {R},\bm  {t}]$. Nach \blx@tocontentsinit {0}\cite {qiao2023pnp}.}}{16}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:pnp_algorithm}{{5.2}{16}{Koordinatensysteme der \code {PnP}-Posenschätzung: Ein Weltpunkt $\bm {P}$ wird über die Außenorientierung $[\bm {R},\bm {t}]$ ins Kamerasystem $O_c$, dann über die Brennweite $f$ auf die normalisierte Bildebene und schließlich über die Intrinsik (Hauptpunkt $(u_0,v_0)$) in Pixelkoordinaten abgebildet. \code {PnP} löst die Umkehrung: aus Punkt-Pixel-Paaren und bekanntem $\bm {K}$ die gesuchte Pose $[\bm {R},\bm {t}]$. Nach \cite {qiao2023pnp}}{figure.caption.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.8}Registrierung: grob und fein}{16}{section.5.8}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5.3}{\ignorespaces RANSAC am Beispiel der Geradenanpassung: Die durchgezogene Linie ist das Modell mit dem größten \emph  {Consensus Set} -- alle Punkte im hellen Band ($\pm \tau $) zählen als Inlier; die mit Kreuzen markierten Ausreißer werden verworfen. Die gestrichelte Linie ist eine zufällig gezogene Hypothese, die wegen zu weniger Inlier wieder verworfen wird. Prinzip nach \blx@tocontentsinit {0}\cite {raguram2008ransac}.}}{17}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:ransac_algorithm}{{5.3}{17}{RANSAC am Beispiel der Geradenanpassung: Die durchgezogene Linie ist das Modell mit dem größten \emph {Consensus Set} -- alle Punkte im hellen Band ($\pm \tau $) zählen als Inlier; die mit Kreuzen markierten Ausreißer werden verworfen. Die gestrichelte Linie ist eine zufällig gezogene Hypothese, die wegen zu weniger Inlier wieder verworfen wird. Prinzip nach \cite {raguram2008ransac}}{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.9}Punktwolken-Netze: PointNet und PointNet++}{17}{section.5.9}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5.4}{\ignorespaces Eine ICP-Iteration: Zu jedem Punkt der Quellform (grün) wird der nächste Punkt der Zielform (rot) gesucht (gepunktete Korrespondenzen, $\bm  {x}^1_i=\arg \min _{\bm  {x}}\lVert f^0(\bm  {x})-\bm  {y}_i\rVert ^2$); anschließend liefert die Procrustes-Lösung die starre Transformation $f^1$, die die paarweise Distanz minimiert. Beide Schritte werden bis zur Konvergenz wiederholt. Nach \blx@tocontentsinit {0}\cite {ponsmoll2024icp}.}}{18}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:icp_algorithm}{{5.4}{18}{Eine ICP-Iteration: Zu jedem Punkt der Quellform (grün) wird der nächste Punkt der Zielform (rot) gesucht (gepunktete Korrespondenzen, $\bm {x}^1_i=\arg \min _{\bm {x}}\lVert f^0(\bm {x})-\bm {y}_i\rVert ^2$); anschließend liefert die Procrustes-Lösung die starre Transformation $f^1$, die die paarweise Distanz minimiert. Beide Schritte werden bis zur Konvergenz wiederholt. Nach \cite {ponsmoll2024icp}}{figure.caption.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5.5}{\ignorespaces Semantische Segmentierung einer Außenszene im Vergleich: Gegenüber der Ground Truth (links) verschmiert \textbf  {PointNet} (Mitte) feine lokale Strukturen, weil das globale Max-Pooling die Nachbarschaftsinformation verliert. \textbf  {PointNet++} (rechts) gewinnt durch die hierarchische, lokale Merkmalsextraktion deutlich saubere Klassengrenzen zurück. Nach \blx@tocontentsinit {0}\cite {maral2023pointnet}.}}{18}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:pointnet}{{5.5}{18}{Semantische Segmentierung einer Außenszene im Vergleich: Gegenüber der Ground Truth (links) verschmiert \textbf {PointNet} (Mitte) feine lokale Strukturen, weil das globale Max-Pooling die Nachbarschaftsinformation verliert. \textbf {PointNet++} (rechts) gewinnt durch die hierarchische, lokale Merkmalsextraktion deutlich saubere Klassengrenzen zurück. Nach \cite {maral2023pointnet}}{figure.caption.9}{}}
 \gdef \LT@iv {\LT@entry 
     {1}{114.12054pt}\LT@entry 
     {1}{301.90848pt}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.8}Punktwolken-Netze: PointNet und PointNet++}{13}{section.5.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.9}Stereo, Tiefe und Skalierung}{13}{section.5.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.10}Zeitliche Konsistenz: Kalman-Pose-Tracking}{13}{section.5.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.11}Sim-to-Real und Trainingsdaten}{13}{section.5.11}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.12}Benchmarking und Metriken}{13}{section.5.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.10}Stereo, Tiefe und Skalierung}{19}{section.5.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.11}Zeitliche Konsistenz: Kalman-Pose-Tracking}{19}{section.5.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.12}Sim-to-Real und Trainingsdaten}{19}{section.5.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.13}Benchmarking und Metriken}{19}{section.5.13}\protected@file@percent }
 \@setckpt{chapters/ch04a_posenschaetzung}{
-\setcounter{page}{15}
-\setcounter{equation}{4}
+\setcounter{page}{21}
+\setcounter{equation}{5}
 \setcounter{enumi}{2}
 \setcounter{enumii}{0}
 \setcounter{enumiii}{0}
@@ -33,12 +44,12 @@
 \setcounter{mpfootnote}{0}
 \setcounter{part}{1}
 \setcounter{chapter}{5}
-\setcounter{section}{12}
+\setcounter{section}{13}
 \setcounter{subsection}{0}
 \setcounter{subsubsection}{0}
 \setcounter{paragraph}{0}
 \setcounter{subparagraph}{0}
-\setcounter{figure}{1}
+\setcounter{figure}{5}
 \setcounter{table}{2}
 \setcounter{parentequation}{0}
 \setcounter{LT@tables}{4}
@@ -47,9 +58,9 @@
 \setcounter{continuedfloat}{0}
 \setcounter{lstnumber}{6}
 \setcounter{section@level}{1}
-\setcounter{Item}{6}
+\setcounter{Item}{16}
 \setcounter{Hfootnote}{0}
-\setcounter{bookmark@seq@number}{34}
+\setcounter{bookmark@seq@number}{38}
 \setcounter{tcbbreakpart}{1}
 \setcounter{tcblayer}{0}
 \setcounter{tcolorbox@number}{6}
@@ -67,7 +78,7 @@
 \setcounter{citetotal}{0}
 \setcounter{multicitecount}{0}
 \setcounter{multicitetotal}{0}
-\setcounter{instcount}{9}
+\setcounter{instcount}{40}
 \setcounter{maxnames}{3}
 \setcounter{minnames}{1}
 \setcounter{maxitems}{3}

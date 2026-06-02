@@ -1,0 +1,290 @@
+% =============================================================
+%  ch05a_regelungstechnik.tex  --  Regelungstechnik für Roboter:
+%  Feedback, Vorsteuerung, Kaskade, Arbeitsraum, Feedback-Entkopplung,
+%  Beobachter und Störgrößenkompensation
+% =============================================================
+
+\chapter{Regelungstechnik der Robotergrundlagen}
+\label{ch:regelung}
+
+Die Dynamik aus Kapitel~\ref{ch:kinematik} sagt, \emph{welches} Gelenkmoment
+$\bm{\tau}$ eine gewünschte Bewegung erzeugt. Die Regelung beantwortet die
+schwierigere Frage: Wie hält der Roboter die Sollbahn \textbf{trotz}
+Modellfehlern, Reibung, Nutzlastwechseln und Stößen? Dieses Kapitel ordnet die
+gängigen Regelungsarchitekturen ein -- mit dem Fokus, \textbf{wann} man welche
+einsetzen \emph{muss} und worin der Unterschied zu den Alternativen liegt.
+
+Grundlage ist überall das Bewegungsgesetz aus dem Kinematik-Kapitel:
+\begin{equation}\label{eq:dyn}
+\bm{M}(\bm{q})\ddot{\bm{q}} + \bm{C}(\bm{q},\dot{\bm{q}})\dot{\bm{q}}
++ \bm{g}(\bm{q}) = \bm{\tau} + \bm{\tau}_{\text{stör}}
+\end{equation}
+mit Massenmatrix $\bm{M}$, Coriolis/Zentrifugal-Term $\bm{C}$, Gravitation
+$\bm{g}$ und einer Störung $\bm{\tau}_{\text{stör}}$ (Reibung, Kontaktkräfte,
+unmodellierte Last). Der Bahnfehler ist $\bm{e} = \bm{q}_{\text{soll}} - \bm{q}$.
+
+\section{Feedback: die Grundlage}
+Feedback (Rückführung) misst den Fehler $\bm{e}$ und stellt ihm ein
+korrigierendes Moment entgegen. Der Klassiker im Gelenkraum ist ein
+\textbf{PD-Regler mit Gravitationskompensation}:
+\begin{equation}
+\bm{\tau} = \bm{K}_p\,\bm{e} + \bm{K}_d\,\dot{\bm{e}} + \bm{g}(\bm{q})
+\end{equation}
+\begin{infobox}[title=Wann einsetzen]
+Immer -- Feedback ist das Fundament jeder Roboterregelung. Es ist die einzige
+Komponente, die \emph{unbekannte} Störungen und Modellfehler nachträglich
+ausbügelt. Ein reiner PD/PID im Gelenkraum genügt bei langsamen Bewegungen,
+hoher Getriebeuntersetzung (entkoppelt die Gelenke quasi voneinander) und
+moderaten Genauigkeitsanforderungen -- etwa beim Anfahren von Wegpunkten.
+\end{infobox}
+\textbf{Unterschied zu den anderen:} Feedback reagiert \emph{erst nach} dem
+Auftreten des Fehlers -- es ist reaktiv und damit zwangsläufig
+„hinterher``. Hohe $\bm{K}_p$ verkürzen die Reaktion, fachen aber Rauschen und
+Schwingungen an. Alles Folgende (Vorsteuerung, Entkopplung, Beobachter) dient
+dazu, dem Feedback weniger Arbeit zu hinterlassen.
+
+\section{Vorsteuerung (Feedforward)}
+Die Vorsteuerung rechnet aus der \emph{bekannten} Sollbahn das nötige Moment
+\textbf{vorab} aus und schaltet es additiv zum Feedback. Mit dem Modell
+\eqref{eq:dyn} ergibt sich die ideale \textbf{dynamische Vorsteuerung}:
+\begin{equation}\label{eq:ff}
+\bm{\tau} = \underbrace{\bm{M}(\bm{q})\ddot{\bm{q}}_{\text{soll}}
++ \bm{C}(\bm{q},\dot{\bm{q}})\dot{\bm{q}}_{\text{soll}} + \bm{g}(\bm{q})}
+_{\text{Vorsteuerung (Modell)}}
++ \underbrace{\bm{K}_p\,\bm{e} + \bm{K}_d\,\dot{\bm{e}}}_{\text{Feedback}}
+\end{equation}
+Das ist eine \textbf{Zwei-Freiheitsgrade-Struktur}: Die Vorsteuerung bestimmt
+das Führungsverhalten (Bahnfolge), das Feedback nur noch das Störverhalten
+(Restfehler). Beide lassen sich getrennt auslegen.
+\begin{infobox}[title=Wann einsetzen]
+Sobald die Bahn \emph{im Voraus bekannt} ist und schnell/präzise gefolgt werden
+soll -- Schweißnähte, Pick-and-Place mit kurzen Taktzeiten, der Schlagarm des
+Tischtennisroboters. Die Vorsteuerung eliminiert den \emph{systematischen}
+Schleppfehler, ohne die Feedback-Verstärkung hochziehen zu müssen.
+\end{infobox}
+\textbf{Unterschied zum Feedback:} Vorsteuerung ist \emph{vorausschauend} und
+kennt keinen Messfehler -- sie kann daher nicht instabil werden, aber auch keine
+unvorhergesehene Störung ausgleichen. Sie ist nur so gut wie das Modell. Darum
+nie allein, sondern stets \emph{kombiniert} mit Feedback.
+
+\section{Kaskadenregelung}
+Statt einer einzigen Schleife schachtelt die Kaskade mehrere ineinander -- jede
+mit eigener, messbarer Zwischengröße. Beim Servoantrieb sind das drei Ebenen:
+\begin{center}
+\begin{tikzpicture}[node distance=7mm]
+\node[node] (pos) {Positions-\\regler};
+\node[node,right=of pos] (vel) {Geschwindigkeits-\\regler};
+\node[node,right=of vel] (cur) {Strom-/Momenten-\\regler};
+\node[node,right=of cur,fill=accent!18] (mot) {Motor +\\Gelenk};
+\draw[flow] (pos)--(vel) node[midway,above,font=\scriptsize]{$\dot q_{\text{soll}}$};
+\draw[flow] (vel)--(cur) node[midway,above,font=\scriptsize]{$i_{\text{soll}}$};
+\draw[flow] (cur)--(mot) node[midway,above,font=\scriptsize]{$u$};
+\draw[flow] (mot.south) -- ++(0,-6mm) -| (vel.south)
+  node[near start,below,font=\scriptsize]{$\dot q$ (Encoder)};
+\draw[flow] (mot.south) -- ++(0,-11mm) -| (pos.south)
+  node[near start,below,font=\scriptsize]{$q$ (Encoder)};
+\end{tikzpicture}
+\end{center}
+Die \textbf{innere} Schleife (Strom) ist am schnellsten getaktet
+($\sim$\,kHz--10\,kHz), die \textbf{äußere} (Position) am langsamsten. Faustregel:
+jede innere Schleife mindestens 3--5$\times$ schneller als die nächstäußere.
+\begin{infobox}[title=Wann einsetzen]
+Praktisch in jedem industriellen Antrieb -- Servoverstärker und FOC-Treiber sind
+intern bereits kaskadiert. Sinnvoll, sobald eine schnell messbare Zwischengröße
+(Strom, Drehzahl) existiert und die Stellgröße begrenzt werden muss.
+\end{infobox}
+\textbf{Unterschied zu den anderen:} Die Kaskade ist eine \emph{strukturelle}
+Anordnung mehrerer Feedback-Schleifen, kein eigenständiges Regelgesetz. Ihr
+Vorteil: Störungen, die in einer inneren Schleife angreifen (z.\,B.
+Versorgungsspannungs\-schwankungen), werden dort sofort abgefangen, bevor sie die
+äußere erreichen; außerdem lässt sich jede Ebene einzeln in Betrieb nehmen und
+sättigen (Anti-Windup, Strombegrenzung). Quer\-kopplungen zwischen den Gelenken
+behandelt sie aber nicht -- dafür braucht es Entkopplung (s.\,u.).
+
+\section{Feedback-Entkopplung (Computed Torque)}
+Bei schnellen Bewegungen sind die Gelenke über $\bm{M}$ und $\bm{C}$ stark
+\emph{gekoppelt}: ein bewegtes Gelenk übt Reaktionsmomente auf die anderen aus.
+Die Feedback-Entkopplung (auch \textbf{inverse Dynamik}- oder
+\textbf{Computed-Torque}-Regelung) hebt das per exakter Modellrechnung auf. Man
+setzt eine Hilfsgröße $\bm{a}$ an und invertiert die Dynamik:
+\begin{equation}\label{eq:ctc}
+\bm{\tau} = \bm{M}(\bm{q})\,\bm{a}
++ \bm{C}(\bm{q},\dot{\bm{q}})\dot{\bm{q}} + \bm{g}(\bm{q}),
+\qquad
+\bm{a} = \ddot{\bm{q}}_{\text{soll}} + \bm{K}_d\,\dot{\bm{e}} + \bm{K}_p\,\bm{e}
+\end{equation}
+Eingesetzt in \eqref{eq:dyn} (ohne Störung) bleibt das exakt \textbf{lineare,
+entkoppelte} Fehlersystem
+\begin{equation}
+\ddot{\bm{e}} + \bm{K}_d\,\dot{\bm{e}} + \bm{K}_p\,\bm{e} = \bm{0},
+\end{equation}
+also für \emph{jedes} Gelenk ein unabhängiges, frei platzierbares
+PD-Verhalten -- unabhängig von Stellung und Geschwindigkeit.
+\begin{infobox}[title=Wann einsetzen]
+Schnelle, dynamische Bewegungen mit leichter Struktur und geringer
+Getriebeunter\-setzung, bei denen die Kopplung spürbar wird -- Leichtbauarme,
+Direktantriebe, der hochbeschleunigte Schlagarm. Voraussetzung: ein hinreichend
+genaues Dynamikmodell und Momenten-/Strom\-regelbare Antriebe.
+\end{infobox}
+\textbf{Unterschied zur Vorsteuerung:} Beide nutzen das Modell. Die Vorsteuerung
+\eqref{eq:ff} wertet es entlang der \emph{Soll}-Größen aus (Steuerung, offene
+Wirkung); die Feedback-Entkopplung \eqref{eq:ctc} wertet $\bm{M},\bm{C}$ entlang
+der \emph{Ist}-Größen aus und linearisiert die Strecke \emph{innerhalb} der
+geschlossenen Schleife. Dadurch ist das resultierende Fehlerverhalten
+arbeitspunktunabhängig konstant -- der Preis ist die Modellauswertung in
+Echtzeit und die Empfindlichkeit gegen Modellfehler.
+
+\section{Regelung im Arbeitsraum (Operational Space Control)}
+Bisher wurde im Gelenkraum geregelt; die Aufgabe ist aber meist im
+\textbf{kartesischen Raum} definiert (Pose des Endeffektors $\bm{x}$). Statt erst
+per inverser Kinematik nach $\bm{q}_{\text{soll}}$ umzurechnen, formuliert man
+Regler und Dynamik direkt in $\bm{x}$ -- über die Jacobi-Matrix $\bm{J}$ mit
+$\dot{\bm{x}} = \bm{J}\dot{\bm{q}}$. Das entkoppelte Gesetz im Arbeitsraum lautet
+\begin{equation}
+\bm{\tau} = \bm{J}^\top\!\Big[\bm{\Lambda}(\bm{q})\,\bm{a}_x
++ \bm{\mu}(\bm{q},\dot{\bm{q}}) + \bm{p}(\bm{q})\Big],
+\qquad
+\bm{a}_x = \ddot{\bm{x}}_{\text{soll}}
++ \bm{K}_d\,\dot{\bm{e}}_x + \bm{K}_p\,\bm{e}_x
+\end{equation}
+mit der Arbeitsraum-Massenmatrix $\bm{\Lambda} = (\bm{J}\bm{M}^{-1}\bm{J}^\top)^{-1}$.
+Der Fehler $\bm{e}_x$ wird direkt im kartesischen Raum gebildet (Position als
+Differenz, Orientierung als Vektorteil des Fehlerquaternions, vgl.
+Kapitel~\ref{ch:kinematik}).
+\begin{infobox}[title=Wann einsetzen]
+Wenn die \emph{Aufgabe} im kartesischen Raum lebt: Kraft-/Impedanz\-regelung beim
+Kontakt (Polieren, Stecken, Montage), Bahnverfolgung am Werkstück,
+nullraumoptimierte redundante Arme. Auch dann, wenn die inverse Kinematik nahe
+Singularitäten unzuverlässig wird.
+\end{infobox}
+\textbf{Unterschied zur Gelenkraumregelung:} Identische Mathematik, anderer Raum.
+Im Arbeitsraum legst du Steifigkeit und Dämpfung \emph{richtungsabhängig} fest
+(z.\,B.\ nachgiebig in Stoßrichtung, steif quer dazu) -- ideal für Kontakt\-aufgaben.
+Nachteil: $\bm{J}$ wird nahe Singularitäten schlecht konditioniert, und der
+Nullraum redundanter Roboter muss separat behandelt werden.
+
+\section{Zustandsbeobachter}
+Computed-Torque und Vorsteuerung brauchen $\dot{\bm{q}}$ (oft auch
+Beschleunigungen oder die Störung) -- gemessen wird aber meist nur die Position
+$\bm{q}$. Numerisches Differenzieren verstärkt Rauschen. Der
+\textbf{Zustandsbeobachter} schätzt die nicht gemessenen Zustände aus Modell und
+Eingang, korrigiert über den Messfehler:
+\begin{equation}
+\dot{\hat{\bm{x}}} = \bm{f}(\hat{\bm{x}},\bm{u})
++ \bm{L}\,(\bm{y} - \hat{\bm{y}})
+\end{equation}
+Die Beobachterverstärkung $\bm{L}$ legt fest, wie schnell die Schätzung dem
+wahren Zustand folgt (Luenberger für lineare, EKF für nichtlineare Systeme --
+siehe Kapitel~\ref{ch:kalman}).
+\begin{infobox}[title=Wann einsetzen]
+Wenn Zustände für das Regelgesetz gebraucht werden, die kein Sensor direkt
+liefert: Gelenkgeschwindigkeit aus reinem Positionsencoder, Verspannung in einem
+elastischen Gelenk, oder -- besonders wichtig -- die \emph{Störung} selbst (s.\,u.).
+\end{infobox}
+\textbf{Unterschied zum Kalman-Filter:} Der Beobachter ist das deterministische
+Konzept; der Kalman-Filter ist der Beobachter, dessen $\bm{L}$ statistisch
+optimal aus den Rausch-Kovarianzen bestimmt wird. Funktional dasselbe Bauteil im
+Regelkreis.
+
+\section{Störgrößenkompensation}
+Reibung, unbekannte Nutzlast und Kontaktkräfte stecken in
+$\bm{\tau}_{\text{stör}}$ aus \eqref{eq:dyn}. Drei Strategien -- gestaffelt nach
+dem, was über die Störung bekannt ist:
+
+\subsection{Statische vs.\ dynamische Störgrößenausschaltung}
+Lässt sich die Störung \emph{messen} oder aus den Eingängen \emph{berechnen}
+(z.\,B.\ ein bekanntes Lastmoment, das von der nachgeführten Last abhängt),
+schaltet man ihren Effekt vorausberechnet auf -- analog zur Vorsteuerung, nur für
+die Störung statt für die Führung. Die \textbf{dynamische} Variante berücksichtigt
+dabei das \emph{zeitliche} Übertragungsverhalten zwischen Störangriff und Ausgang
+(nicht nur den stationären Wert), sodass die Kompensation auch während des
+Einschwingens passt.
+\begin{infobox}[title=Wann einsetzen]
+Wenn die Störung \emph{messbar} ist (Kraftsensor, bekannte, mitgeführte Last) und
+schnell genug wirkt, dass reines Feedback zu spät käme. Die statische Form genügt
+bei langsamen Störungen; die dynamische, wenn Störung und Strecke vergleichbar
+schnell sind.
+\end{infobox}
+
+\subsection{Störentkopplung (Disturbance Decoupling)}
+Hier ist das Ziel strenger: die Reglerstruktur so wählen, dass die Störung den
+\emph{geregelten Ausgang} \textbf{prinzipiell nicht mehr beeinflusst} -- die
+Übertragungsfunktion von $\bm{\tau}_{\text{stör}}$ auf $\bm{y}$ wird zu null. Das
+gelingt nur, wenn der Störangriff aus dem messbaren/stellbaren Raum heraus
+kompensierbar ist (die geometrische Entkopplungsbedingung). Die Störung darf
+intern noch wirken, erscheint aber nicht am Ausgang.
+\begin{infobox}[title=Wann einsetzen]
+Wenn eine bestimmte Störrichtung den Ausgang \emph{strukturell} nicht erreichen
+darf und das System die Entkopplungsbedingung erfüllt. Schärfer als die bloße
+Ausschaltung, dafür an strukturelle Voraussetzungen gebunden.
+\end{infobox}
+\textbf{Unterschied:} Ausschaltung \emph{kompensiert} eine konkrete Störung
+betragsmäßig; Entkopplung \emph{eliminiert} ihren Einfluss auf den Ausgang per
+Struktur -- unabhängig vom Störverlauf.
+
+\subsection{Dynamische Vorsteuerung -- mit oder ohne Zustandsregelung}
+Ist die Störung \emph{nicht} messbar, schätzt sie ein Beobachter (oft als
+\textbf{Disturbance Observer}, DOB, der $\hat{\bm{\tau}}_{\text{stör}}$ aus dem
+Vergleich von Modell und Istverhalten rekonstruiert) und speist die Schätzung
+gegenphasig auf:
+\begin{equation}
+\bm{\tau} = \bm{\tau}_{\text{Regler}} - \hat{\bm{\tau}}_{\text{stör}}.
+\end{equation}
+Das ist eine \emph{dynamische Vorsteuerung der Störung} aus dem Beobachter.
+
+Zwei Ausbaustufen:
+\begin{itemize}
+\item \textbf{Ohne Zustandsregelung:} reine Aufschaltung der geschätzten Störung
+  auf einen bestehenden (z.\,B.\ PD-) Regler. Einfach nachzurüsten, sehr wirksam
+  gegen Reibung und langsame Lastwechsel.
+\item \textbf{Mit Zustandsregelung:} die Störung wird als \emph{erweiterter
+  Zustand} ins Modell aufgenommen (Störmodell), der Beobachter schätzt sie
+  mit, und ein Zustandsregler $\bm{u} = -\bm{K}\hat{\bm{x}}$ verarbeitet sie
+  konsistent mit den übrigen Zuständen. Das erlaubt frei platzierbare Dynamik des
+  Gesamtsystems inklusive Störunterdrückung.
+\end{itemize}
+\begin{warnbox}[title=Voraussetzung und Grenze]
+Jede modellbasierte Störschätzung lebt vom Modell: Ist $\bm{M},\bm{C},\bm{g}$
+falsch, interpretiert der DOB den Modellfehler als Störung und „kompensiert`` ihn
+ebenfalls -- gewollt bei Robustheit, ungewollt, wenn die Bandbreite zu hoch
+gewählt ist und Messrauschen mit aufgeschaltet wird.
+\end{warnbox}
+\textbf{Unterschied zur messenden Ausschaltung:} Statt die Störung zu
+\emph{messen}, wird sie \emph{geschätzt} -- anwendbar auch dort, wo kein Sensor
+sie erfasst (Reibung!). Die Zustandsregelungs-Variante unterscheidet sich von der
+reinen Aufschaltung dadurch, dass Stör- und Regeldynamik \emph{gemeinsam}
+ausgelegt werden, statt eine fertige Schleife nur zu ergänzen.
+
+\section{Überblick: Wann was?}
+\begin{longtable}{@{}p{3.4cm}p{5.3cm}p{5.6cm}@{}}
+\toprule
+\textbf{Verfahren} & \textbf{Einsatz / Auslöser} & \textbf{Abgrenzung} \\
+\midrule
+Feedback (PD/PID) & Immer; langsame Bewegung, hohe Untersetzung &
+  Reaktiv, gleicht Unbekanntes aus, aber „hinterher`` \\
+Vorsteuerung & Bahn vorab bekannt, schnelle Folge nötig &
+  Vorausschauend, modellbasiert, ohne Feedback nicht störfest \\
+Kaskade & Schnelle Zwischengröße messbar (Strom, Drehzahl) &
+  Struktur aus Schleifen, fängt innere Störungen früh ab \\
+Feedback-Entkopplung & Schnelle Bewegung, spürbare Gelenk\-kopplung &
+  Linearisiert Strecke \emph{im} Kreis, arbeitspunktunabhängig \\
+Arbeitsraum-Regelung & Aufgabe kartesisch, Kontakt/Kraft &
+  Wie Entkopplung, aber in $\bm{x}$; richtungsabhängige Steifigkeit \\
+Zustandsbeobachter & Zustand/Störung nicht direkt messbar &
+  Liefert $\dot{\bm{q}}$, Störung etc.; KF = optimaler Beobachter \\
+Störausschaltung & Störung messbar &
+  Kompensiert Betrag (statisch/dynamisch) \\
+Störentkopplung & Störrichtung darf Ausgang nicht erreichen &
+  Eliminiert Einfluss strukturell, nicht nur betragsmäßig \\
+Dyn.\ Vorst.\ (DOB) & Störung nicht messbar (Reibung, Last) &
+  Schätzt statt misst; mit Zustandsregelung gemeinsam ausgelegt \\
+\bottomrule
+\end{longtable}
+
+\noindent\textbf{Praxis-Fazit:} Die Verfahren sind \emph{Schichten}, keine
+Alternativen. Ein realer Roboterregler kombiniert sie: kaskadierte
+Antriebsregelung als Basis, Feedback-Entkopplung oder Arbeitsraumregelung für
+die Kopplung, Vorsteuerung für die bekannte Bahn, ein Beobachter für fehlende
+Zustände und ein Disturbance Observer für Reibung und Last. Jede Schicht nimmt
+dem darunterliegenden Feedback Arbeit ab -- und nur das Feedback bleibt am Ende
+für das Unvorhergesehene zuständig.

@@ -120,18 +120,117 @@ Bei der Inferenz wird jedes Pixel-Embedding seinem nächsten
 Oberflächenpunkt-Embedding zugeordnet.}
 \end{center}
 
-\section{Von Korrespondenzen zur Pose: PnP + RANSAC}
+\section{Von Korrespondenzen zur Pose: PnP}
+\label{sec:pnp}
 Aus den dichten 2D-3D-Korrespondenzen wird die Pose über \textbf{Perspective-n-Point}
-(\code{PnP}) gelöst -- die $(\bm{R},\bm{t})$, die die 3D-Modellpunkte $\bm{P}_i$
-auf die beobachteten Pixel $\bm{u}_i$ projiziert:
+(\code{PnP}) gelöst: Gesucht ist die starre Transformation $(\bm{R},\bm{t})$, die
+die bekannten 3D-Modellpunkte $\bm{P}_i$ so ins Kamerasystem dreht und schiebt,
+dass ihre Projektion möglichst genau auf die beobachteten Pixel $\bm{u}_i$ fällt.
+
+\textbf{Die Geometrie dahinter} (Abb.~\ref{fig:pnp_algorithm}): Ein 3D-Punkt
+$\bm{P}$ lebt zunächst im \emph{Weltkoordinatensystem}. Die gesuchte
+Außenorientierung $[\bm{R}\,|\,\bm{t}]$ überführt ihn ins
+\emph{Kamerakoordinatensystem}; die Brennweite $f$ projiziert ihn auf die
+\emph{normalisierte Bildebene}; die Intrinsik $\bm{K}$ (mit Hauptpunkt
+$(u_0,v_0)$) rechnet schließlich in Pixel um. \code{PnP} kehrt diese Kette um:
+aus $n$ bekannten Punkt-Pixel-Paaren und bekanntem $\bm{K}$ rekonstruiert es
+$[\bm{R}\,|\,\bm{t}]$. Mathematisch ist es die Minimierung des
+\textbf{Reprojektionsfehlers}:
 \begin{equation}
 (\bm{R},\bm{t}) = \arg\min_{\bm{R},\bm{t}}
 \sum_i \big\lVert \bm{u}_i - \pi\!\big(\bm{K}(\bm{R}\bm{P}_i + \bm{t})\big)\big\rVert^2
 \end{equation}
-mit Projektion $\pi(\cdot)$ und Intrinsik $\bm{K}$. \textbf{RANSAC} umhüllt das
-Ganze und verwirft Ausreißer-Korrespondenzen (zieht zufällige minimale Mengen,
-zählt Inlier, behält das beste Modell). Bei reinen 3D-3D-Daten tritt an die
-Stelle der Reprojektion die euklidische Punktdistanz.
+mit der Projektion $\pi(\cdot)$ (Division durch die Tiefe). Drei Korrespondenzen
+($n=3$, das \emph{P3P}-Minimalproblem) reichen geometrisch für eine Lösung mit
+mehreren Kandidaten; ab $n\ge 4$ wird die Pose eindeutig und durch die
+Redundanz genauer und stabiler \cite{qiao2023pnp}.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\textwidth]{pnp_algorithm}
+  \caption{Koordinatensysteme der \code{PnP}-Posenschätzung: Ein Weltpunkt
+  $\bm{P}$ wird über die Außenorientierung $[\bm{R},\bm{t}]$ ins
+  Kamerasystem $O_c$, dann über die Brennweite $f$ auf die normalisierte
+  Bildebene und schließlich über die Intrinsik (Hauptpunkt $(u_0,v_0)$) in
+  Pixelkoordinaten abgebildet. \code{PnP} löst die Umkehrung: aus
+  Punkt-Pixel-Paaren und bekanntem $\bm{K}$ die gesuchte Pose
+  $[\bm{R},\bm{t}]$. Nach \cite{qiao2023pnp}.}
+  \label{fig:pnp_algorithm}
+\end{figure}
+
+\noindent \textbf{Klassische Löser:} \emph{DLT} (direkte lineare Transformation)
+ist schnell, aber rauschempfindlich; \emph{EPnP} löst das allgemeine Problem in
+$O(n)$; iterative Verfahren (Levenberg-Marquardt) verfeinern das Ergebnis durch
+nichtlineare Minimierung des Reprojektionsfehlers. Numerisch heikel bleiben der
+\emph{planare} Fall (alle Punkte in einer Ebene) und \emph{quasi-singuläre}
+Konfigurationen, weshalb genaue Verfahren die Rotation gesondert
+parametrisieren \cite{qiao2023pnp}. In der Praxis ruft man
+\code{cv2.solvePnPRansac()} auf -- und genau dieses RANSAC-Mantelverfahren ist
+der nächste Baustein.
+
+\section{Robuste Schätzung: RANSAC}
+\label{sec:ransac}
+Reale Korrespondenzmengen enthalten \textbf{Ausreißer} (Fehlzuordnungen,
+bewegte Objekte). Eine Kleinste-Quadrate-Lösung über \emph{alle} Punkte wird
+schon von wenigen groben Ausreißern ruiniert, weil deren quadrierter Fehler die
+Summe dominiert. \textbf{RANSAC} (Random Sample Consensus) umgeht das mit einer
+\emph{Hypothesize-and-Verify}-Schleife \cite{raguram2008ransac}:
+\begin{enumerate}
+\item \textbf{Sample:} Ziehe zufällig eine \emph{minimale} Punktmenge (für eine
+  Gerade: 2 Punkte; für PnP: 3--4 Korrespondenzen) und schätze daraus ein
+  Modell.
+\item \textbf{Verify:} Zähle, wie viele aller Punkte näher als eine Schwelle
+  $\tau$ am Modell liegen -- die \textbf{Inlier} (der \emph{Consensus Set}).
+\item \textbf{Iterate:} Wiederhole; behalte das Modell mit den meisten Inliern.
+\item \textbf{Refine:} Schätze das finale Modell aus \emph{allen} Inliern neu
+  (Kleinste Quadrate ohne Ausreißer).
+\end{enumerate}
+Die nötige Iterationszahl $N$ ergibt sich aus der gewünschten Erfolgs\-wahr\-schein\-lich\-keit
+$p$ (z.\,B.\ $0{,}99$), dem Inlier-Anteil $w$ und der Sample-Größe $s$:
+\begin{equation}
+N = \frac{\log(1-p)}{\log\!\big(1-w^{\,s}\big)}
+\end{equation}
+-- der Aufwand steigt steil, wenn der Ausreißeranteil wächst oder $s$ größer
+wird, was die adaptiven Echtzeit-Varianten motiviert \cite{raguram2008ransac}.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[scale=0.92,every node/.style={font=\scriptsize}]
+    % --- axes ---
+    \draw[->,gray!60] (-0.2,-0.2) -- (8.6,-0.2) node[right,black]{Merkmal $x$};
+    \draw[->,gray!60] (-0.2,-0.2) -- (-0.2,6.1) node[above,black]{Merkmal $y$};
+    % --- inlier consensus band (tau) around the fitted line ---
+    \fill[accent!12] (0,0.1) -- (8,4.9) -- (8,5.7) -- (0,0.9) -- cycle;
+    % --- RANSAC best-fit line ---
+    \draw[accent,very thick] (0,0.5) -- (8,5.3);
+    % --- a rejected hypothesis (few inliers) ---
+    \draw[accent2,dashed,thick] (0.4,4.7) -- (6.2,0.2);
+    % --- inlier points (near the line) ---
+    \foreach \p in {(0.5,0.9),(1.0,1.0),(1.5,1.5),(2.2,1.7),(2.8,2.3),%
+      (3.5,2.5),(4.0,3.0),(4.6,3.1),(5.3,3.8),(6.0,4.0),(6.7,4.6),(7.4,4.9)}
+      \fill[accent] \p circle (2.2pt);
+    % --- outlier points (far from the line), drawn as small squares ---
+    \foreach \p in {(1.0,4.2),(2.5,0.3),(3.0,4.9),(5.0,1.0),(6.6,2.1),(7.1,5.6)}
+      \fill[accent2] \p +(-0.08,-0.08) rectangle +(0.08,0.08);
+    % --- legend ---
+    \fill[accent] (5.0,6.0) circle (2.2pt) node[right,black]{Inlier};
+    \fill[accent2] (6.3,6.0) +(-0.08,-0.08) rectangle +(0.08,0.08);
+    \node[right=3pt,black] at (6.38,6.0) {Ausreißer};
+  \end{tikzpicture}
+  \caption{RANSAC am Beispiel der Geradenanpassung: Die durchgezogene Linie ist
+  das Modell mit dem größten \emph{Consensus Set} -- alle Punkte im hellen Band
+  ($\pm\tau$) zählen als Inlier; die mit Kreuzen markierten Ausreißer werden
+  verworfen. Die gestrichelte Linie ist eine zufällig gezogene Hypothese, die
+  wegen zu weniger Inlier wieder verworfen wird. Prinzip nach
+  \cite{raguram2008ransac}.}
+  \label{fig:ransac_algorithm}
+\end{figure}
+
+\noindent Genau dieses Verfahren steckt in \code{solvePnPRansac}: Jede minimale
+Korrespondenz-Stichprobe liefert ein Kandidaten-$(\bm{R},\bm{t})$, dessen
+Reprojektionsfehler über alle Punkte die Inlier zählt. Bei reinen 3D-3D-Daten
+tritt an die Stelle der Reprojektion die euklidische Punktdistanz, das
+Mantelverfahren bleibt identisch.
 
 \section{Registrierung: grob und fein}
 Eine \emph{einstufige} Registrierung ist unzuverlässig; Standard sind
@@ -150,6 +249,34 @@ Eine \emph{einstufige} Registrierung ist unzuverlässig; Standard sind
   \end{equation}
   Genau, aber nur \textbf{lokal}.
 \end{enumerate}
+
+\textbf{ICP im Detail} (Abb.~\ref{fig:icp_algorithm}): Jede Iteration besteht
+aus zwei Schritten, die abwechselnd ausgeführt werden, bis sich nichts mehr
+ändert:
+\begin{enumerate}[label=(\roman*)]
+\item \textbf{Korrespondenz:} Ordne jedem transformierten Quellpunkt seinen
+  \emph{nächsten} Zielpunkt zu (Nearest-Neighbor-Suche, beschleunigt per
+  k-d-Baum) -- das liefert die aktuellen Punktpaare.
+\item \textbf{Ausrichtung:} Bestimme bei \emph{festen} Korrespondenzen das
+  optimale $(\bm{R},\bm{t})$, das die Summe der quadrierten Abstände minimiert.
+  Das ist das \textbf{Procrustes-Problem} und hat eine geschlossene Lösung über
+  die Singulärwertzerlegung der Kreuzkovarianzmatrix \cite{ponsmoll2024icp}.
+\end{enumerate}
+Beide Schritte senken den Fehler monoton, weshalb ICP garantiert konvergiert --
+allerdings nur in das \emph{nächstgelegene} Minimum.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.6\textwidth]{ipc_algorithm}
+  \caption{Eine ICP-Iteration: Zu jedem Punkt der Quellform (grün) wird der
+  nächste Punkt der Zielform (rot) gesucht (gepunktete Korrespondenzen,
+  $\bm{x}^1_i=\arg\min_{\bm{x}}\lVert f^0(\bm{x})-\bm{y}_i\rVert^2$); anschließend
+  liefert die Procrustes-Lösung die starre Transformation $f^1$, die die paarweise
+  Distanz minimiert. Beide Schritte werden bis zur Konvergenz wiederholt. Nach
+  \cite{ponsmoll2024icp}.}
+  \label{fig:icp_algorithm}
+\end{figure}
+
 \textbf{ICP-Schwächen:} (1) \emph{lokale Minima} -- es läuft bergab und bleibt
 stecken; (2) \emph{initialisierungsabhängig} -- es funktioniert nur bei nahem
 Start (daher läuft die Grobstufe zuerst). \textbf{Go-ICP}
@@ -172,6 +299,24 @@ darf nicht von der Reihenfolge abhängen (\textbf{Permutationsinvarianz}).
   auf größerer Skala wiederholen. Baut lokal + global hierarchisch auf, ähnlich
   einem CNN.
 \end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.92\textwidth]{point_net_vs_point_net++}
+  \caption{Semantische Segmentierung einer Außenszene im Vergleich: Gegenüber
+  der Ground Truth (links) verschmiert \textbf{PointNet} (Mitte) feine lokale
+  Strukturen, weil das globale Max-Pooling die Nachbarschaftsinformation
+  verliert. \textbf{PointNet++} (rechts) gewinnt durch die hierarchische,
+  lokale Merkmalsextraktion deutlich saubere Klassengrenzen zurück. Nach
+  \cite{maral2023pointnet}.}
+  \label{fig:pointnet}
+\end{figure}
+
+\noindent Genau diese hierarchische Lokalität ist der praktische Unterschied:
+Für die feine Registrierung texturarmer Industrieteile zählen lokale
+Oberflächendetails, weshalb PointNet++ (bzw.\ darauf aufbauende Architekturen)
+in der Posenschätzung dem ursprünglichen PointNet vorgezogen wird
+\cite{maral2023pointnet,qi2017pointnetpp}.
 
 \section{Stereo, Tiefe und Skalierung}
 \textbf{Warum Stereo?} Eine Mono-Kamera hat \emph{Skalenmehrdeutigkeit}

@@ -3,10 +3,23 @@
 \@writefile{toc}{\contentsline {chapter}{\numberline {3}Odometrie und Sensorfusion}{7}{chapter.3}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
+\@writefile{toc}{\contentsline {section}{\numberline {3.1}Radodometrie: Pose-Integration aus Encoder-Ticks}{7}{section.3.1}\protected@file@percent }
+\newlabel{sec:wheel_odometry}{{3.1}{7}{Radodometrie: Pose-Integration aus Encoder-Ticks}{section.3.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.1}{\ignorespaces Geometrie der Radodometrie: Zwischen Anfangspose $(X_i,Y_i,\Psi _i)$ und Endpose $(X_f,Y_f,\Psi _f)$ legen linkes, mittleres und rechtes Rad die Bogenstücke $\Delta d_l$, $\Delta d_c$, $\Delta d_r$ um das Momentanzentrum $C$ zurück. Die unterschiedlichen Radradien $R_{\text  {left}}$, $R_{\text  {center}}$, $R_{\text  {right}}$ erzeugen die Kursänderung $\Delta \Psi $. Nach \blx@tocontentsinit {0}\cite {barzegar2021wheel}.}}{8}{figure.caption.3}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:wheel_odometry}{{3.1}{8}{Geometrie der Radodometrie: Zwischen Anfangspose $(X_i,Y_i,\Psi _i)$ und Endpose $(X_f,Y_f,\Psi _f)$ legen linkes, mittleres und rechtes Rad die Bogenstücke $\Delta d_l$, $\Delta d_c$, $\Delta d_r$ um das Momentanzentrum $C$ zurück. Die unterschiedlichen Radradien $R_{\text {left}}$, $R_{\text {center}}$, $R_{\text {right}}$ erzeugen die Kursänderung $\Delta \Psi $. Nach \cite {barzegar2021wheel}}{figure.caption.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.2}Visuelle Odometrie (VO)}{8}{section.3.2}\protected@file@percent }
+\newlabel{sec:visual_odometry}{{3.2}{8}{Visuelle Odometrie (VO)}{section.3.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.2}{\ignorespaces 3D-2D-Bewegungsschätzung in der visuellen Odometrie: Gegeben sind die 3D-Weltkoordinaten der Merkmale aus Frame $k{-}1$ und ihre 2D-Bildkoordinaten in Frame $k$. Über die Kameraprojektion $s\,\bm  {u}=\bm  {K}\,[\bm  {R}\,|\,\bm  {t}]\,\bm  {X}$ mit der aus der Kalibrierung bekannten Intrinsik $\bm  {K}$ wird die relative Pose $[\bm  {R}\,|\,\bm  {t}]$ zwischen den Kamerazentren $C_{k-1}$ und $C_k$ geschätzt. Nach \blx@tocontentsinit {0}\cite {leon_vo}.}}{8}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:visual_odometry}{{3.2}{8}{3D-2D-Bewegungsschätzung in der visuellen Odometrie: Gegeben sind die 3D-Weltkoordinaten der Merkmale aus Frame $k{-}1$ und ihre 2D-Bildkoordinaten in Frame $k$. Über die Kameraprojektion $s\,\bm {u}=\bm {K}\,[\bm {R}\,|\,\bm {t}]\,\bm {X}$ mit der aus der Kalibrierung bekannten Intrinsik $\bm {K}$ wird die relative Pose $[\bm {R}\,|\,\bm {t}]$ zwischen den Kamerazentren $C_{k-1}$ und $C_k$ geschätzt. Nach \cite {leon_vo}}{figure.caption.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.3}Visual-Inertial Odometry (VIO)}{9}{section.3.3}\protected@file@percent }
+\newlabel{sec:vio}{{3.3}{9}{Visual-Inertial Odometry (VIO)}{section.3.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.3}{\ignorespaces VIO-Messmodell über ein gleitendes Fenster von Kameraposen $c_1,c_2,c_3$ und IMU-Körperposen $b_1,b_2,b_3$. Jedes Merkmal $\bm  {f}_j$ wird in mehreren Bildern als visuelle Messung $\bm  {z}^{c_i}_{f_j}$ beobachtet; zwischen den Bildzeitpunkten verbinden \emph  {vorintegrierte} IMU-Messungen $\bm  {z}_{b_ib_{i+1}}$ die Posen. Die gemeinsame Optimierung beider Messtypen ergibt die fusionierte Trajektorie. Nach \blx@tocontentsinit {0}\cite {godio2022vio}.}}{9}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:vio}{{3.3}{9}{VIO-Messmodell über ein gleitendes Fenster von Kameraposen $c_1,c_2,c_3$ und IMU-Körperposen $b_1,b_2,b_3$. Jedes Merkmal $\bm {f}_j$ wird in mehreren Bildern als visuelle Messung $\bm {z}^{c_i}_{f_j}$ beobachtet; zwischen den Bildzeitpunkten verbinden \emph {vorintegrierte} IMU-Messungen $\bm {z}_{b_ib_{i+1}}$ die Posen. Die gemeinsame Optimierung beider Messtypen ergibt die fusionierte Trajektorie. Nach \cite {godio2022vio}}{figure.caption.5}{}}
 \@setckpt{chapters/ch03_odometrie}{
-\setcounter{page}{8}
-\setcounter{equation}{0}
-\setcounter{enumi}{0}
+\setcounter{page}{11}
+\setcounter{equation}{2}
+\setcounter{enumi}{4}
 \setcounter{enumii}{0}
 \setcounter{enumiii}{0}
 \setcounter{enumiv}{0}
@@ -14,23 +27,23 @@
 \setcounter{mpfootnote}{0}
 \setcounter{part}{1}
 \setcounter{chapter}{3}
-\setcounter{section}{0}
+\setcounter{section}{3}
 \setcounter{subsection}{0}
 \setcounter{subsubsection}{0}
 \setcounter{paragraph}{0}
 \setcounter{subparagraph}{0}
-\setcounter{figure}{0}
+\setcounter{figure}{3}
 \setcounter{table}{0}
 \setcounter{parentequation}{0}
 \setcounter{LT@tables}{1}
 \setcounter{LT@chunks}{1}
-\setcounter{caption@flags}{0}
+\setcounter{caption@flags}{2}
 \setcounter{continuedfloat}{0}
 \setcounter{lstnumber}{6}
 \setcounter{section@level}{1}
-\setcounter{Item}{0}
+\setcounter{Item}{4}
 \setcounter{Hfootnote}{0}
-\setcounter{bookmark@seq@number}{16}
+\setcounter{bookmark@seq@number}{19}
 \setcounter{tcbbreakpart}{1}
 \setcounter{tcblayer}{0}
 \setcounter{tcolorbox@number}{5}
@@ -48,7 +61,7 @@
 \setcounter{citetotal}{0}
 \setcounter{multicitecount}{0}
 \setcounter{multicitetotal}{0}
-\setcounter{instcount}{0}
+\setcounter{instcount}{13}
 \setcounter{maxnames}{3}
 \setcounter{minnames}{1}
 \setcounter{maxitems}{3}
