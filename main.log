@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.2) (preloaded format=pdflatex 2026.4.4)  2 JUN 2026 10:44
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.2) (preloaded format=pdflatex 2026.4.4)  2 JUN 2026 15:04
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1579,11 +1579,11 @@ Package babel Info: 'ngerman' activates 'german' shorthands.
 (babel)             Reported on input line 78.
  [3]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 85.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 87.
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 85.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 87.
  [4]
-Underfull \hbox (badness 10000) in paragraph at lines 129--129
+Underfull \hbox (badness 10000) in paragraph at lines 131--131
 []  
  []
 
@@ -1689,7 +1689,7 @@ s-ten-ten \T1/lmtt/m/n/10 odom$\OMS/lmsy/m/n/10.95 !$\T1/lmtt/m/n/10 base_link\
 T1/lmr/m/n/10.95 -Transformation.
  []
 
-<figures/wheel_odometry.png, id=878, 853.1875pt x 592.2125pt>
+<figures/wheel_odometry.png, id=888, 853.1875pt x 592.2125pt>
 File: figures/wheel_odometry.png Graphic file (type png)
 <use figures/wheel_odometry.png>
 Package pdftex.def Info: figures/wheel_odometry.png  used on input line 36.
@@ -1713,7 +1713,7 @@ lmr/m/n/10 	[])$ \T1/lmr/m/n/10 und End-po-se
 
 
 ]
-<figures/visual_odometry.png, id=891, 1065.9825pt x 598.48593pt>
+<figures/visual_odometry.png, id=901, 1065.9825pt x 598.48593pt>
 File: figures/visual_odometry.png Graphic file (type png)
 <use figures/visual_odometry.png>
 Package pdftex.def Info: figures/visual_odometry.png  used on input line 83.
@@ -1725,7 +1725,7 @@ r vi-su-el-len Odo-me-trie: Ge-ge-ben sind die 3D-
  []
 
 [8 <./figures/wheel_odometry.png> <./figures/visual_odometry.png>]
-<figures/visual_inertial_odometry.png, id=914, 1071.25218pt x 612.03656pt>
+<figures/visual_inertial_odometry.png, id=924, 1071.25218pt x 612.03656pt>
 File: figures/visual_inertial_odometry.png Graphic file (type png)
 <use figures/visual_inertial_odometry.png>
 Package pdftex.def Info: figures/visual_inertial_odometry.png  used on input li
@@ -1783,7 +1783,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 See the caption package documentation for explanation.
 
 [14]
-<figures/pnp_algorithm.png, id=981, 2409.0pt x 1540.75626pt>
+<figures/pnp_algorithm.png, id=991, 2409.0pt x 1540.75626pt>
 File: figures/pnp_algorithm.png Graphic file (type png)
 <use figures/pnp_algorithm.png>
 Package pdftex.def Info: figures/pnp_algorithm.png  used on input line 150.
@@ -1795,12 +1795,12 @@ ier-ten Quell-punkt sei-nen \T1/lmr/m/it/10.95 nächs-ten \T1/lmr/m/n/10.95 Ziel
 -punkt zu (Nearest-
  []
 
-<figures/ipc_algorithm.png, id=1017, 1147.28625pt x 801.74532pt>
+<figures/ipc_algorithm.png, id=1027, 1147.28625pt x 801.74532pt>
 File: figures/ipc_algorithm.png Graphic file (type png)
 <use figures/ipc_algorithm.png>
 Package pdftex.def Info: figures/ipc_algorithm.png  used on input line 270.
 (pdftex.def)             Requested size: 279.97786pt x 195.65248pt.
-<figures/point_net_vs_point_net++.png, id=1023, 1579.40062pt x 648.92438pt>
+<figures/point_net_vs_point_net++.png, id=1033, 1579.40062pt x 648.92438pt>
 File: figures/point_net_vs_point_net++.png Graphic file (type png)
 <use figures/point_net_vs_point_net++.png>
 Package pdftex.def Info: figures/point_net_vs_point_net++.png  used on input li
@@ -1808,23 +1808,60 @@ ne 305.
 (pdftex.def)             Requested size: 429.29416pt x 176.38033pt.
 [17] [18 <./figures/ipc_algorithm.png> <./figures/point_net_vs_point_net++.png>
 ]
-Underfull \hbox (badness 1072) in paragraph at lines 361--362
+
+Package caption Warning: The option `hypcap=true' will be ignored for this
+(caption)                particular \caption on input line 380.
+See the caption package documentation for explanation.
+
+[19]
+Overfull \hbox (5.54039pt too wide) in paragraph at lines 449--455
+\T1/lmr/m/n/10.95 Pathtracing, gu-te Domain-Randomization-API, di-rek-te In-te-
+gra-ti-on in Robotik-Workflows. Ernst-
+ []
+
+[20]
+Underfull \hbox (badness 10000) in paragraph at lines 471--471
+[]|\T1/lmr/m/n/10.95 BOP-nativ, Phy-sik,
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 471--471
+[]|\T1/lmr/m/n/10.95 Cycles
+ []
+
+
+Underfull \hbox (badness 1242) in paragraph at lines 472--472
+[]|\T1/lmr/m/n/10.95 GPU-Tempo, Robotik-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 472--473
+[]|\T1/lmr/m/n/10.95 Industrie/NVIDIA-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 474--474
+[]|\T1/lmr/m/n/10.95 Proprietär (NX
+ []
+
+
+Underfull \hbox (badness 1072) in paragraph at lines 487--488
 []|\T1/lmr/m/n/10.95 mittlerer Punktab-stand Modell$\OMS/lmsy/m/n/10.95 $$\T1/l
 mr/m/n/10.95 Schätzung; ADD-S nutzt
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 362--362
+Underfull \hbox (badness 10000) in paragraph at lines 488--488
 []|\T1/lmr/m/n/10.95 Rotations-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 365--366
+Underfull \hbox (badness 10000) in paragraph at lines 491--492
 []|\T1/lmr/m/n/10.95 BOP-Suite, spe-zi-ell \T1/lmr/bx/n/10.95 T-LESS \T1/lmr/m/
 n/10.95 und \T1/lmr/bx/n/10.95 ITODD \T1/lmr/m/n/10.95 (tex-tur-
  []
 
-) [19] [20]
+) [21]
 \openout2 = `chapters/ch05_kinematik.aux'.
 
  (chapters/ch05_kinematik.tex
@@ -1842,7 +1879,7 @@ Trajectory \T1/lmr/m/n/10.95 ei-ne Bahn (Punk-te mit Po-si-ti-on/Geschwindigkei
 t/Zeit),
  []
 
-[21
+[22
 
 
 
@@ -1852,18 +1889,18 @@ t/Zeit),
 
  (chapters/ch05a_regelungstechnik.tex
 Kapitel 7.
-[22
+[23
 
 
 
 
-] [23] [24]
+] [24] [25]
 Overfull \hbox (3.78989pt too wide) in paragraph at lines 184--188
 []\T1/lmr/bx/n/10.95 Unterschied zum Kalman-Filter: \T1/lmr/m/n/10.95 Der Be-ob
 -ach-ter ist das de-ter-mi-nis-ti-sche Kon-zept; der Kalman-
  []
 
-[25]
+[26]
 Underfull \hbox (badness 5607) in paragraph at lines 263--263
 []|\T1/lmr/m/n/10.95 Immer; lang-sa-me Be-we-gung,
  []
@@ -1928,12 +1965,12 @@ Underfull \hbox (badness 4303) in paragraph at lines 280--281
 []|\T1/lmr/m/n/10.95 Schätzt statt misst; mit Zu-
  []
 
-) [26]
+) [27]
 \openout2 = `chapters/ch06_schrittmotoren.aux'.
 
  (chapters/ch06_schrittmotoren.tex
 Kapitel 8.
-) [27
+) [28
 
 
 
@@ -1943,12 +1980,12 @@ Kapitel 8.
 
  (chapters/ch07_zykloidgetriebe.tex
 Kapitel 9.
-) [28
+) [29
 
 
 
 
-] [29
+] [30
 
 
 
@@ -1962,10 +1999,10 @@ Underfull \hbox (badness 1655) in paragraph at lines 20--21
 []|\T1/lmr/m/n/10.95 Standard, güns-tig, aus-rei-chend Mo-ment
  []
 
-[30
+[31
 
 
-]) [31]
+]) [32]
 \openout2 = `chapters/ch09_pcb.aux'.
 
  (chapters/ch09_pcb.tex
@@ -1976,7 +2013,7 @@ Overfull \hbox (12.62727pt too wide) in paragraph at lines 21--23
 eitungen; Ver-pol-schutz; Freilauf-/EMV-Betrachtung
  []
 
-) [32
+) [33
 
 
 
@@ -1991,7 +2028,7 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.82538pt
 (hyperref)                removed on input line 62.
 
-[33
+[34
 
 
 
@@ -2000,7 +2037,7 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 
  (chapters/ch10_betriebssystem.tex
 Kapitel 12.
-) [34
+) [35
 
 
 ]
@@ -2023,7 +2060,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 49--50
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [35
+ignored: Infinite glue shrinkage found in box being split [36
 
 
 
@@ -2034,7 +2071,7 @@ Overfull \hbox (48.84608pt too wide) in paragraph at lines 62--65
 ll ros-jazzy-ros-gz ros-jazzy-ros2-control ros-jazzy-moveit
  []
 
-[36] [37
+[37] [38
 
 
 
@@ -2068,7 +2105,7 @@ Overfull \hbox (13.20657pt too wide) in paragraph at lines 30--33
 Gra-vi-ta-ti-on und Auf-prall als Starr-kör-per-phy-sik; dein Kalman-
  []
 
-[38
+[39
 
 
 ]
@@ -2077,7 +2114,7 @@ Overfull \hbox (4.07631pt too wide) in paragraph at lines 76--81
 ti-on, Mo-dell-prä-dik-ti-ve Re-ge-lung (MPC). Wenn
  []
 
-[39]
+[40]
 Underfull \hbox (badness 10000) in paragraph at lines 117--118
 []|\T1/lmr/m/n/10.95 Allround-Integrationstest, Sen-so-rik,
  []
@@ -2102,7 +2139,7 @@ Underfull \hbox (badness 2961) in paragraph at lines 119--120
 \T1/lmr/m/n/10.95 sche Pose-Schätzung, RL via Isaac
  []
 
-) [40]
+) [41]
 \openout2 = `chapters/ch13_sim_real_trennung.aux'.
 
  (chapters/ch13_sim_real_trennung.tex
@@ -2119,7 +2156,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 35.
 See the caption package documentation for explanation.
 
-) [41
+) [42
 
 
 
@@ -2143,15 +2180,15 @@ File: lstlang1.sty 2025/11/14 1.11b listings language file
 (C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstmisc
 .sty
 File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
-) [42
+) [43
 
 
 
 
-]) [43]
+]) [44]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <24.88> not available
 (Font)              Font shape `T1/lmtt/b/n' tried instead on input line 79.
- [44
+ [45
 
 
 
@@ -2198,7 +2235,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 49.
 See the caption package documentation for explanation.
 
-) [45
+) [46
 
 
 ]
@@ -2234,7 +2271,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 47.
 See the caption package documentation for explanation.
 
-) [46
+) [47
 
 
 
@@ -2277,7 +2314,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 46.
 See the caption package documentation for explanation.
 
-) [47
+) [48
 
 
 
@@ -2327,7 +2364,7 @@ Overfull \hbox (1.37099pt too wide) in paragraph at lines 54--58
 n/10.95 das im Theo-rie-ka-pi-tel be-schrie-be-ne Zwei-
  []
 
-[48
+[49
 
 
 
@@ -2348,7 +2385,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 119--119
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [49]) [50]
+ignored: Infinite glue shrinkage found in box being split [50]) [51]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 89.
@@ -2358,7 +2395,7 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.82538pt
 (hyperref)                removed on input line 89.
 
-[51
+[52
 
 
 
@@ -2377,7 +2414,7 @@ Bild. Erst den Trei-ber star-ten, dann links/rechts
 (C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstlang
 1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
-)) [52
+)) [53
 
 
 ]
@@ -2385,7 +2422,7 @@ File: lstlang1.sty 2025/11/14 1.11b listings language file
 
  (chapters/ch20_kalibrierung.tex
 Kapitel 22.
-<figures/stereo_camera_calibration.png, id=1374, 471.26062pt x 509.65407pt>
+<figures/stereo_camera_calibration.png, id=1409, 471.26062pt x 509.65407pt>
 File: figures/stereo_camera_calibration.png Graphic file (type png)
 <use figures/stereo_camera_calibration.png>
 Package pdftex.def Info: figures/stereo_camera_calibration.png  used on input l
@@ -2400,18 +2437,18 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.82538pt
 (hyperref)                removed on input line 48.
 
-) [53
+) [54
 
 
 
 
-] [54 <./figures/stereo_camera_calibration.png>]
+] [55 <./figures/stereo_camera_calibration.png>]
 \openout2 = `chapters/ch21_kalman_knoten.aux'.
 
 
 (chapters/ch21_kalman_knoten.tex
 Kapitel 23.
-) [55
+) [56
 
 
 
@@ -2426,28 +2463,28 @@ Overfull \hbox (12.27092pt too wide) in paragraph at lines 8--8
 []\T1/lmr/bx/n/14.4 Detektoren im Ver-gleich: SIFT, SURF, KA-ZE, AKA-ZE, ORB,
  []
 
-<figures/image_detection.png, id=1444, 767.86874pt x 769.37437pt>
+<figures/image_detection.png, id=1479, 767.86874pt x 769.37437pt>
 File: figures/image_detection.png Graphic file (type png)
 <use figures/image_detection.png>
 Package pdftex.def Info: figures/image_detection.png  used on input line 25.
 (pdftex.def)             Requested size: 396.63411pt x 397.41206pt.
-[56
+[57
 
 
 
 
-] [57 <./figures/image_detection.png>]) [58]
+] [58 <./figures/image_detection.png>]) [59]
 \openout2 = `chapters/ch22a_echtzeit_scheduling.aux'.
 
 
 (chapters/ch22a_echtzeit_scheduling.tex
 Kapitel 25.
-[59
+[60
 
 
 
 
-] [60]
+] [61]
 Underfull \hbox (badness 1077) in paragraph at lines 122--129
 \T1/lmr/m/n/10.95 weil ein lang-sa-mer Detektions-Thread sie spät ab-lie-fert),
  sind zwei We-ge sau-ber: (a)
@@ -2465,7 +2502,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 154.
 See the caption package documentation for explanation.
 
-[61]) [62]
+[62]) [63]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\leavevmode@ifvmode' on input line 100.
@@ -2475,7 +2512,7 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                \kern 1.82538pt
 (hyperref)                removed on input line 100.
 
-[63
+[64
 
 
 
@@ -2539,7 +2576,7 @@ Underfull \hbox (badness 6608) in paragraph at lines 53--54
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [64
+ignored: Infinite glue shrinkage found in box being split [65
 
 
 ]
@@ -2567,7 +2604,7 @@ k-Group \T1/lmr/m/n/10.95 (\T1/lmtt/m/n/10 MutuallyExclusiveCallbackGroup\T1/lm
 r/m/n/10.95 ) mit
  []
 
-[65]
+[66]
 Underfull \hbox (badness 10000) in paragraph at lines 148--149
 []|\T1/lmr/m/n/10.95 numerische Ma-the-ma-
  []
@@ -2625,13 +2662,13 @@ epend> \T1/lmr/m/n/10.95 bzw. \T1/lmtt/m/n/10 rosdep\T1/lmr/m/n/10.95 ; groÿe F
 ra-me-works
  []
 
-[66] [67]
+[67] [68]
 Overfull \hbox (2.00551pt too wide) in paragraph at lines 262--266
 \T1/lmr/m/n/10.95 Ein mehr-schich-ti-ges Per-zep-tron (Multi-Layer Per-cep-tron
 , MLP) ap-pro-xi-miert be-lie-bi-ge glat-te Funk-
  []
 
-[68]
+[69]
 Underfull \hbox (badness 10000) in paragraph at lines 371--371
 []|\T1/lmr/m/n/10.95 Least-Squares
  []
@@ -2682,7 +2719,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 390--391
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [69]) [70] [71
+ignored: Infinite glue shrinkage found in box being split [70]) [71] [72
 
 
 
@@ -2703,7 +2740,7 @@ Overfull \hbox (4.3291pt too wide) in paragraph at lines 38--42
 er ESP32 ge-hört auf die \T1/lmr/bx/n/10.95 Echtzeit-
  []
 
-[72
+[73
 
 
 ]
@@ -2712,7 +2749,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 95.
 See the caption package documentation for explanation.
 
-) [73]
+) [74]
 \openout2 = `chapters/ch24_portalsystem.aux'.
 
  (chapters/ch24_portalsystem.tex
@@ -2729,7 +2766,7 @@ Underfull \hbox (badness 10000) in paragraph at lines 48--48
  []
 
 
-ignored: Infinite glue shrinkage found in box being split [74
+ignored: Infinite glue shrinkage found in box being split [75
 
 
 
@@ -2740,17 +2777,17 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 83.
 See the caption package documentation for explanation.
 
-) [75]
+) [76]
 \openout2 = `chapters/ch25_hebelarm.aux'.
 
  (chapters/ch25_hebelarm.tex
 Kapitel 29.
-) [76
+) [77
 
 
 
 
-] [77]
+] [78]
 \openout2 = `chapters/ch26_simulierbarkeit.aux'.
 
  (chapters/ch26_simulierbarkeit.tex
@@ -2770,12 +2807,12 @@ Underfull \hbox (badness 1584) in paragraph at lines 18--18
 []|\T1/lmr/m/n/10.95 Dynamische Kopp-lung (Arm-träg-heit rea-
  []
 
-) [78
+) [79
 
 
 
 
-] [79]
+] [80]
 \openout2 = `chapters/ch27_cad_module.aux'.
 
  (chapters/ch27_cad_module.tex
@@ -2835,7 +2872,7 @@ Package caption Warning: The option `hypcap=true' will be ignored for this
 (caption)                particular \caption on input line 46.
 See the caption package documentation for explanation.
 
-[80
+[81
 
 
 
@@ -2846,7 +2883,7 @@ Underfull \hbox (badness 1033) in paragraph at lines 96--102
 g in Li-near-weg: \T1/lmr/m/it/10.95 Weg pro Um-dre-
  []
 
-) [81] [82
+) [82] [83
 
 
 
@@ -2862,7 +2899,7 @@ Overfull \hbox (3.52089pt too wide) in paragraph at lines 13--19
 bration
  []
 
-) [83
+) [84
 
 
 ]
@@ -2878,7 +2915,7 @@ r-na-tio-nal Con-fe-rence on Ro-bo-tics and Au-to-ma-ti-on (ICRA)\T1/lmr/m/n/10
 .95 .
  []
 
-[84
+[85
 
 
 
@@ -2904,7 +2941,7 @@ i-on\T1/lmr/m/n/10.95 . 2024. \T1/lmr/m/sc/10.95 url\T1/lmr/m/n/10.95 : [][]$\T
 1/lmtt/m/n/10.95 https : / / docs . isaacsim . omniverse .
  []
 
-[85] (main.aux (chapters/ch01_ros2_konzepte.aux) (chapters/ch02_kalman_ekf.aux)
+[86] (main.aux (chapters/ch01_ros2_konzepte.aux) (chapters/ch02_kalman_ekf.aux)
 (chapters/ch03_odometrie.aux) (chapters/ch04_stereosehen.aux)
 (chapters/ch04a_posenschaetzung.aux) (chapters/ch05_kinematik.aux)
 (chapters/ch05a_regelungstechnik.aux) (chapters/ch06_schrittmotoren.aux)
@@ -2929,7 +2966,7 @@ L3 programming layer <2026-01-19>
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 4C0DE1CC072B6B0178369E3F356B5569;34002.
+(rerunfilecheck)             Checksum: E48935056A2D1A1EE5AAA0F000517A04;34495.
 
 Package biblatex Warning: Please (re)run BibTeX on the file(s):
 (biblatex)                main
@@ -2940,10 +2977,10 @@ Package logreq Info: Writing requests to 'main.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 43424 strings out of 467867
- 890756 string characters out of 5414947
- 2143944 words of memory out of 5000000
- 70608 multiletter control sequences out of 15000+600000
+ 43507 strings out of 467867
+ 892351 string characters out of 5414947
+ 2146875 words of memory out of 5000000
+ 70674 multiletter control sequences out of 15000+600000
  772003 words of font info for 144 fonts, out of 8000000 for 9000
  1143 hyphenation exceptions out of 8191
  89i,13n,99p,1890b,2371s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -2987,9 +3024,9 @@ rn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtt9.pfb><C:/Users/_In
 nos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/lm/lmtti10.pfb><C:/U
 sers/_Innos_Zorn_/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/sym
 bols/msbm10.pfb>
-Output written on main.pdf (91 pages, 5389566 bytes).
+Output written on main.pdf (92 pages, 5404402 bytes).
 PDF statistics:
- 2220 PDF objects out of 2487 (max. 8388607)
- 807 named destinations out of 1000 (max. 500000)
- 1397 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 2262 PDF objects out of 2487 (max. 8388607)
+ 824 named destinations out of 1000 (max. 500000)
+ 1413 words of extra memory for PDF output out of 10000 (max. 10000000)
 

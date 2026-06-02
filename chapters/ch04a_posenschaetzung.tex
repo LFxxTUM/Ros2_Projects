@@ -353,6 +353,132 @@ synthetisch trainiert -- aber es klafft ein \textbf{Sim-to-Real-Gap}
 Isaac Sim, vgl.\ Kapitel zu Simulationswerkzeugen) und ein kleiner realer
 Feintuning-Datensatz.
 
+\section{Die Pipeline: von CAD zu Trainingsdaten}
+\label{sec:datapipeline}
+Das Vorgehen ist in der Praxis (und in den BOP-Datensätzen
+\cite{hodan2018bop}) eine feste Kette von Schritten. Sie produziert pro Szene
+nicht nur ein Bild, sondern den \emph{kompletten} Annotationssatz, den der
+kontrastive Verlust (Abschnitt zuvor) braucht.
+
+\begin{center}
+\begin{tikzpicture}[node distance=4mm,every node/.style={font=\scriptsize}]
+\node[topic] (cad) {CAD\\$\rightarrow$ Mesh};
+\node[topic,right=of cad] (mat) {Material\\PBR};
+\node[topic,right=of mat] (scene) {Szene\\HDRI + BG};
+\node[topic,right=of scene] (pose) {Pose-Sampling\\Physik (Fall)};
+\node[topic,right=of pose] (cam) {Kamera\\Intrinsics};
+\node[topic,right=of cam] (rend) {Pathtracing\\Render};
+\node[topic,right=of rend] (aug) {Augment.\\Rand.};
+\node[topic,right=of aug] (exp) {Export\\BOP};
+\draw[flow] (cad)--(mat); \draw[flow] (mat)--(scene);
+\draw[flow] (scene)--(pose); \draw[flow] (pose)--(cam);
+\draw[flow] (cam)--(rend); \draw[flow] (rend)--(aug);
+\draw[flow] (aug)--(exp);
+\end{tikzpicture}
+\captionof{figure}{Synthese-Pipeline. Parallel dazu läuft eine
+\emph{reale} Validierungsschicht (ein paar hundert annotierte Bilder), die nicht
+trainiert, sondern nur den Sim-to-Real-Abfall misst.}
+\end{center}
+
+\begin{enumerate}
+\item \textbf{CAD-Vorbereitung.} Konvertierung in ein renderfähiges Mesh (OBJ,
+  PLY, glTF). Dabei oft: Mesh-Vereinfachung bei überaufgelösten Modellen,
+  Sicherstellen der \emph{Wasserdichtigkeit}, Skalierung in metrische Einheiten
+  (mm) -- der Roboter arbeitet später in Millimetern.
+\item \textbf{Material- und Texturzuweisung.} Realistisches \textbf{PBR-Material}
+  (Roughness, Metallic, ggf.\ Normal Maps). Glänzende Metallteile: hoher
+  Metallic-, niedriger Roughness-Wert -- der Hebel, mit dem Reflexionen
+  physikalisch korrekt entstehen.
+\item \textbf{Szenenaufbau.} Hintergrund (zufällige Domain-Randomization-Textur
+  \emph{oder} realistische Industrieumgebung) und Beleuchtung, meist über
+  \textbf{HDRI-Environment-Maps} (360°-Panoramen), die Licht \emph{und}
+  Reflexionen im Material zugleich liefern -- der zweite große Realismus-Hebel
+  bei Metall.
+\item \textbf{Pose-Sampling per Physik.} Statt zufälliger Platzierung wird
+  simuliert, wie Teile in eine Kiste \emph{fallen} (Bullet in BlenderProc,
+  PhysX in Omniverse): mehrere Instanzen kollidieren und kommen in stabilen
+  Lagen zur Ruhe. Extrahiert werden genau die Posen, die real vorkommen -- keine
+  schwebenden oder unmöglichen Lagen.
+\item \textbf{Kamera-Sampling.} Virtuelle Kamera in plausiblen Positionen
+  (typisch schräg von oben, wie eine Bin-Picking-Kamera). Die
+  \textbf{Intrinsics} werden auf die spätere reale Kamera (RealSense, Photoneo)
+  gesetzt, damit das Netz keine Brennweiten-Diskrepanz mitlernen muss.
+\item \textbf{Rendering.} Der Pathtracer erzeugt pro Szene mehrere Ausgänge
+  zugleich: RGB-Bild, Tiefenkarte (für RGB-D), Segmentierungsmaske, 6-DoF-Pose
+  pro Instanz und -- entscheidend -- die \textbf{dichten 2D-3D-Korrespondenzen}
+  (zu jedem Pixel die exakte 3D-Oberflächenkoordinate auf dem CAD). Genau diese
+  Korrespondenzen sind das Trainingssignal für den kontrastiven Verlust in
+  SurfEmb \cite{haugaard2022surfemb}.
+\item \textbf{Augmentierung / Domain Randomization.} Beim Rendern oder als
+  Nachbearbeitung: Beleuchtungsvariation, Hintergrund-Austausch, Sensorrauschen,
+  Defokus- und Bewegungsunschärfe, JPEG-Artefakte -- damit das Netz robust gegen
+  den Unterschied zwischen synthetischer und realer Sensorik wird.
+\item \textbf{Datensatz-Export.} Ausgabe in einem standardisierten Format; bei
+  Evaluation auf \textbf{BOP} \cite{hodan2018bop} direkt im BOP-Format, sodass
+  das Trainingsset zur Benchmark-Pipeline kompatibel ist (BlenderProc bringt
+  fertige Writer mit).
+\item \textbf{Reale Validierungsschicht.} Parallel hält man einen kleinen Satz
+  \emph{real} annotierter Bilder vor (typisch ein paar hundert) -- nicht zum
+  Trainieren, sondern zur Messung der Sim-to-Real-Leistung. Fällt die
+  Genauigkeit zu stark ab, wird mit diesem Set fine-getuned oder die
+  Renderpipeline angepasst (mehr Randomization, realistischere Materialien,
+  andere HDRIs).
+\end{enumerate}
+
+\begin{infobox}[title=Der Knackpunkt bei Industrieteilen]
+Zwei Schritte entscheiden über Sim-to-Real bei glänzendem Metall: das
+\textbf{PBR-Material} (Schritt~2) und die \textbf{HDRI-Beleuchtung}
+(Schritt~3). Sie erzeugen die Reflexionen, an denen klassische Deskriptoren
+scheitern -- und damit genau das Erscheinungsbild, das das Netz robust
+verarbeiten lernen muss.
+\end{infobox}
+
+\section{Werkzeuge: Renderer im Vergleich}
+Vier Werkzeugfamilien decken die Pipeline ab; die Wahl bestimmt vor allem
+Geschwindigkeit, Integrationstiefe und Verbreitung im Feld.
+
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[BlenderProc -- der De-facto-Standard.] Python-Wrapper um Blender, speziell
+  für synthetische Trainingsdaten \cite{denninger2019blenderproc}. Damit werden
+  die offiziellen BOP-Datensätze gerendert, und die meisten modernen Methoden
+  (SurfEmb, GDR-Net, CosyPose) nutzen es in ihren Papern. \emph{Vorteile:}
+  kostenlos, Open Source, große Community, eingebaute Physik (Bullet) für
+  plausibles Pose-Sampling, fertige BOP-Writer, photorealistisches Rendering
+  über Blenders Cycles-Pathtracer. Der Name, den man im Gespräch nennt.
+\item[NVIDIA Omniverse Replicator / Isaac Sim -- die industrielle Alternative.]
+  Auf Omniverse/USD aufgebaut, mit RTX-beschleunigtem Pathtracing und enger
+  Anbindung an robotische Simulation (Isaac Sim) \cite{omniverse_replicator,isaacsim_docs}.
+  \emph{Stärken:} schneller bei großen Mengen dank GPU-Pathtracing, gute
+  Domain-Randomization-API, direkte Integration in Robotik-Workflows. Ernsthafte
+  Option, wenn die Posenschätzung später Teil einer größeren Robotik-Simulation
+  werden soll.
+\item[Unity Perception / Unreal Engine.] Beide Game Engines haben Pakete für
+  synthetische Daten: Unity das \textbf{Perception Package} mit fertigen Labelern
+  \cite{unity_perception}, Unreal über das NDDS-Plugin oder Python-APIs. In der
+  Pose-Estimation-Community weniger verbreitet als BlenderProc, in der Industrie
+  (besonders Automotive) aber präsent.
+\item[Spezialisierte / proprietäre Tools.] CAE-/Robotik-Suiten (z.\,B.\ NX,
+  Tecnomatix Process Simulate) können CAD und Robotik simulieren, sind aber
+  keine vollständigen Pathtracer für realistische Trainingsbilder. Möglich, dass
+  ein Hersteller intern eine eigene Pipeline auf einer solchen Basis aufgesetzt
+  hat -- eine gute Rückfrage an den Betreuer.
+\end{description}
+
+\begin{longtable}{@{}p{3.0cm}p{4.0cm}p{3.2cm}p{3.4cm}@{}}
+\toprule
+\textbf{Werkzeug} & \textbf{Stärke} & \textbf{Pathtracer} & \textbf{Verbreitung} \\
+\midrule
+BlenderProc & BOP-nativ, Physik, gratis & Cycles (CPU/GPU) & Standard im Feld \\
+Omniverse Replicator & GPU-Tempo, Robotik-Integration & RTX & Industrie/NVIDIA-Stack \\
+Unity / Unreal & fertige Labeler, Engine-Ökosystem & Engine-Renderer & v.\,a.\ Automotive \\
+Proprietär (NX etc.) & CAD-/Robotik-Nähe & kein voller PT & herstellerintern \\
+\bottomrule
+\end{longtable}
+
+\noindent \textbf{Faustregel:} Für Forschung und BOP-Vergleichbarkeit
+\textbf{BlenderProc}; für große Datenmengen und einen durchgängigen
+Robotik-Stack \textbf{Omniverse Replicator / Isaac Sim}.
+
 \section{Benchmarking und Metriken}
 \begin{longtable}{@{}p{3.8cm}p{10.4cm}@{}}
 \toprule

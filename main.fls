@@ -697,6 +697,7 @@ INPUT .\figures\point_net_vs_point_net++.png
 INPUT .\figures\point_net_vs_point_net++.png
 INPUT .\figures\point_net_vs_point_net++.png
 INPUT .\figures\point_net_vs_point_net++.png
+INPUT C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmtt8.tfm
 INPUT .\chapters\ch05_kinematik.tex
 INPUT .\chapters\ch05_kinematik.tex
 OUTPUT chapters\ch05_kinematik.aux
@@ -759,7 +760,6 @@ OUTPUT chapters\ch13_sim_real_trennung.aux
 INPUT .\chapters\ch13_sim_real_trennung.tex
 INPUT .\chapters\ch13_sim_real_trennung.tex
 INPUT chapters\ch13_sim_real_trennung.tex
-INPUT C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmtt8.tfm
 INPUT C:\Users\_Innos_Zorn_\AppData\Local\Programs\MiKTeX\fonts\tfm\public\lm\ec-lmri8.tfm
 INPUT .\chapters\ch14_cad_urdf.tex
 INPUT .\chapters\ch14_cad_urdf.tex

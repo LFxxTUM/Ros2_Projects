@@ -26,17 +26,26 @@
 \newlabel{fig:icp_algorithm}{{5.4}{18}{Eine ICP-Iteration: Zu jedem Punkt der Quellform (grün) wird der nächste Punkt der Zielform (rot) gesucht (gepunktete Korrespondenzen, $\bm {x}^1_i=\arg \min _{\bm {x}}\lVert f^0(\bm {x})-\bm {y}_i\rVert ^2$); anschließend liefert die Procrustes-Lösung die starre Transformation $f^1$, die die paarweise Distanz minimiert. Beide Schritte werden bis zur Konvergenz wiederholt. Nach \cite {ponsmoll2024icp}}{figure.caption.8}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {5.5}{\ignorespaces Semantische Segmentierung einer Außenszene im Vergleich: Gegenüber der Ground Truth (links) verschmiert \textbf  {PointNet} (Mitte) feine lokale Strukturen, weil das globale Max-Pooling die Nachbarschaftsinformation verliert. \textbf  {PointNet++} (rechts) gewinnt durch die hierarchische, lokale Merkmalsextraktion deutlich saubere Klassengrenzen zurück. Nach \blx@tocontentsinit {0}\cite {maral2023pointnet}.}}{18}{figure.caption.9}\protected@file@percent }
 \newlabel{fig:pointnet}{{5.5}{18}{Semantische Segmentierung einer Außenszene im Vergleich: Gegenüber der Ground Truth (links) verschmiert \textbf {PointNet} (Mitte) feine lokale Strukturen, weil das globale Max-Pooling die Nachbarschaftsinformation verliert. \textbf {PointNet++} (rechts) gewinnt durch die hierarchische, lokale Merkmalsextraktion deutlich saubere Klassengrenzen zurück. Nach \cite {maral2023pointnet}}{figure.caption.9}{}}
-\gdef \LT@iv {\LT@entry 
-    {1}{114.12054pt}\LT@entry 
-    {1}{301.90848pt}}
 \@writefile{toc}{\contentsline {section}{\numberline {5.10}Stereo, Tiefe und Skalierung}{19}{section.5.10}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5.11}Zeitliche Konsistenz: Kalman-Pose-Tracking}{19}{section.5.11}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5.12}Sim-to-Real und Trainingsdaten}{19}{section.5.12}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {5.13}Benchmarking und Metriken}{19}{section.5.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.13}Die Pipeline: von CAD zu Trainingsdaten}{19}{section.5.13}\protected@file@percent }
+\newlabel{sec:datapipeline}{{5.13}{19}{Die Pipeline: von CAD zu Trainingsdaten}{section.5.13}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5.6}{\ignorespaces Synthese-Pipeline. Parallel dazu läuft eine \emph  {reale} Validierungsschicht (ein paar hundert annotierte Bilder), die nicht trainiert, sondern nur den Sim-to-Real-Abfall misst.}}{19}{figure.5.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5.14}Werkzeuge: Renderer im Vergleich}{20}{section.5.14}\protected@file@percent }
+\gdef \LT@iv {\LT@entry 
+    {1}{91.35826pt}\LT@entry 
+    {1}{125.81102pt}\LT@entry 
+    {1}{103.04872pt}\LT@entry 
+    {1}{102.73918pt}}
+\gdef \LT@v {\LT@entry 
+    {1}{114.12054pt}\LT@entry 
+    {1}{301.90848pt}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.15}Benchmarking und Metriken}{21}{section.5.15}\protected@file@percent }
 \@setckpt{chapters/ch04a_posenschaetzung}{
-\setcounter{page}{21}
+\setcounter{page}{22}
 \setcounter{equation}{5}
-\setcounter{enumi}{2}
+\setcounter{enumi}{9}
 \setcounter{enumii}{0}
 \setcounter{enumiii}{0}
 \setcounter{enumiv}{0}
@@ -44,26 +53,26 @@
 \setcounter{mpfootnote}{0}
 \setcounter{part}{1}
 \setcounter{chapter}{5}
-\setcounter{section}{13}
+\setcounter{section}{15}
 \setcounter{subsection}{0}
 \setcounter{subsubsection}{0}
 \setcounter{paragraph}{0}
 \setcounter{subparagraph}{0}
-\setcounter{figure}{5}
-\setcounter{table}{2}
+\setcounter{figure}{6}
+\setcounter{table}{3}
 \setcounter{parentequation}{0}
-\setcounter{LT@tables}{4}
+\setcounter{LT@tables}{5}
 \setcounter{LT@chunks}{1}
 \setcounter{caption@flags}{2}
 \setcounter{continuedfloat}{0}
 \setcounter{lstnumber}{6}
 \setcounter{section@level}{1}
-\setcounter{Item}{16}
+\setcounter{Item}{25}
 \setcounter{Hfootnote}{0}
-\setcounter{bookmark@seq@number}{38}
+\setcounter{bookmark@seq@number}{40}
 \setcounter{tcbbreakpart}{1}
 \setcounter{tcblayer}{0}
-\setcounter{tcolorbox@number}{6}
+\setcounter{tcolorbox@number}{7}
 \setcounter{tcbrastercolumn}{1}
 \setcounter{tcbrasterrow}{1}
 \setcounter{tcbrasternum}{1}
@@ -78,7 +87,7 @@
 \setcounter{citetotal}{0}
 \setcounter{multicitecount}{0}
 \setcounter{multicitetotal}{0}
-\setcounter{instcount}{40}
+\setcounter{instcount}{47}
 \setcounter{maxnames}{3}
 \setcounter{minnames}{1}
 \setcounter{maxitems}{3}

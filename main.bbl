@@ -617,6 +617,121 @@
     \field{year}{2018}
   \endentry
 
+  \entry{denninger2019blenderproc}{article}{}{}
+    \name{author}{8}{}{%
+      {{hash=DM}{%
+         family={Denninger},
+         familyi={D\bibinitperiod},
+         given={Maximilian},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=SM}{%
+         family={Sundermeyer},
+         familyi={S\bibinitperiod},
+         given={Martin},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=WD}{%
+         family={Winkelbauer},
+         familyi={W\bibinitperiod},
+         given={Dominik},
+         giveni={D\bibinitperiod},
+      }}%
+      {{hash=ZY}{%
+         family={Zidan},
+         familyi={Z\bibinitperiod},
+         given={Youssef},
+         giveni={Y\bibinitperiod},
+      }}%
+      {{hash=OD}{%
+         family={Olefir},
+         familyi={O\bibinitperiod},
+         given={Dmitry},
+         giveni={D\bibinitperiod},
+      }}%
+      {{hash=EM}{%
+         family={Elbadrawy},
+         familyi={E\bibinitperiod},
+         given={Mohamad},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=LA}{%
+         family={Lodhi},
+         familyi={L\bibinitperiod},
+         given={Ahsan},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=KH}{%
+         family={Katam},
+         familyi={K\bibinitperiod},
+         given={Harinandan},
+         giveni={H\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{DM+1}
+    \strng{fullhash}{DMSMWDZYODEMLAKH1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{title}{{BlenderProc}}
+    \field{journaltitle}{arXiv preprint arXiv:1911.01911}
+    \field{year}{2019}
+  \endentry
+
+  \entry{omniverse_replicator}{misc}{}{}
+    \name{author}{1}{}{%
+      {{hash=N}{%
+         family={{NVIDIA}},
+         familyi={N\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{N1}
+    \strng{fullhash}{N1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{title}{Omniverse Replicator (Synthetic Data Generation)}
+    \verb{url}
+    \verb https://docs.omniverse.nvidia.com/extensions/latest/ext_replicator.ht
+    \verb ml
+    \endverb
+    \field{year}{2024}
+  \endentry
+
+  \entry{isaacsim_docs}{misc}{}{}
+    \name{author}{1}{}{%
+      {{hash=N}{%
+         family={{NVIDIA}},
+         familyi={N\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{N1}
+    \strng{fullhash}{N1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{title}{{NVIDIA Isaac Sim Documentation}}
+    \verb{url}
+    \verb https://docs.isaacsim.omniverse.nvidia.com/
+    \endverb
+    \field{year}{2024}
+  \endentry
+
+  \entry{unity_perception}{misc}{}{}
+    \name{author}{1}{}{%
+      {{hash=U}{%
+         family={{Unity Technologies}},
+         familyi={U\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{U1}
+    \strng{fullhash}{U1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{title}{Unity Perception Package}
+    \verb{url}
+    \verb https://github.com/Unity-Technologies/com.unity.perception
+    \endverb
+    \field{year}{2023}
+  \endentry
+
   \entry{todorov2012mujoco}{inproceedings}{}{}
     \name{author}{3}{}{%
       {{hash=TE}{%
@@ -663,24 +778,6 @@
     \field{title}{{MuJoCo Documentation}}
     \verb{url}
     \verb https://mujoco.readthedocs.io/
-    \endverb
-    \field{year}{2024}
-  \endentry
-
-  \entry{isaacsim_docs}{misc}{}{}
-    \name{author}{1}{}{%
-      {{hash=N}{%
-         family={{NVIDIA}},
-         familyi={N\bibinitperiod},
-      }}%
-    }
-    \strng{namehash}{N1}
-    \strng{fullhash}{N1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{title}{{NVIDIA Isaac Sim Documentation}}
-    \verb{url}
-    \verb https://docs.isaacsim.omniverse.nvidia.com/
     \endverb
     \field{year}{2024}
   \endentry
