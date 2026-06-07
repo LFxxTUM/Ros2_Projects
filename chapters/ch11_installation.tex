@@ -3,6 +3,7 @@
 % =============================================================
 
 \chapter{ROS\,2 installieren -- Schritt für Schritt}
+\label{ch:installation}
 
 \begin{lstlisting}[style=bash,caption={Locale + ROS\,2-Apt-Quelle (Ubuntu 24.04)}]
 # 1) Locale auf UTF-8
@@ -63,3 +64,66 @@ ros2 run demo_nodes_py listener     # Terminal B
 \code{sudo apt install ros-jazzy-ros-gz ros-jazzy-ros2-control ros-jazzy-moveit \ldots}\
 Für den ESP32 zusätzlich der \textbf{micro-ROS Agent} (separat aus dem
 micro-ROS-Workspace gebaut).
+
+% =============================================================
+\section{Die Umgebung dauerhaft verfügbar machen (\code{source})}
+ROS\,2 legt sich nicht wie ein gewöhnliches Programm global in den Suchpfad.
+Stattdessen wird die Arbeitsumgebung pro Terminal mit \code{source} aktiviert:
+Das Skript \code{setup.bash} setzt Umgebungsvariablen -- \code{PATH},
+\code{LD\_LIBRARY\_PATH}, \code{AMENT\_PREFIX\_PATH}, \code{PYTHONPATH},
+\code{GZ\_SIM\_RESOURCE\_PATH} \ldots\ -- \emph{nur} für die aktuelle Shell.
+Erst dadurch finden \code{ros2}, \code{rviz2}, \code{gz} und die Pakete
+einander. Das ist auch der Grund, warum \code{gz} ``nicht gefunden'' wird,
+solange ROS\,2 im Terminal nicht gesourct ist.
+
+\subsection{Underlay und Overlay}
+Es werden zwei Ebenen übereinandergelegt:
+\begin{itemize}
+\item \textbf{Underlay} -- die systemweite ROS\,2-Installation
+  (\code{/opt/ros/jazzy/setup.bash}).
+\item \textbf{Overlay} -- der eigene Workspace
+  (\code{\textasciitilde/ros2\_ws/install/setup.bash}), der das Underlay
+  ergänzt bzw.\ überlagert.
+\end{itemize}
+\textbf{Reihenfolge zählt:} erst das Underlay, dann das Overlay sourcen.
+
+\subsection{Automatisch bei jedem Terminal -- via \code{\textasciitilde/.bashrc}}
+Trägt man die \code{source}-Zeilen in \code{\textasciitilde/.bashrc} ein, führt
+\emph{jede neue interaktive Shell} sie beim Start automatisch aus. Nach dem
+Booten genügt also: Terminal öffnen -- \code{ros2}, \code{gz} und \code{rviz2}
+stehen sofort bereit.
+\begin{lstlisting}[style=bash,caption={Feste Einträge am Ende von \textasciitilde/.bashrc}]
+source /opt/ros/jazzy/setup.bash             # Underlay (ROS 2)
+source ~/ros2_ws/install/setup.bash          # Overlay (eigener Workspace)
+# GPU-Rendering fuer Gazebo-Kamerasensoren (Single-NVIDIA-GPU, siehe Sim-Kapitel)
+export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+\end{lstlisting}
+
+\begin{infobox}[title=Einmal pro Terminal -- nicht pro Befehl]
+\code{source} wirkt auf die gesamte Terminal-Sitzung. Man sourct \textbf{nicht}
+nach jedem Programm- oder Simulationsschritt erneut -- die Umgebung bleibt für
+alle Befehle in diesem Terminal gesetzt. Über \code{\textasciitilde/.bashrc}
+geschieht selbst dieses eine Mal automatisch. Ein
+\code{source \textasciitilde/.bashrc} ist nur nötig, um \emph{Änderungen} an der
+Datei in ein bereits offenes Terminal zu übernehmen.
+\end{infobox}
+
+\subsection{Was sich \emph{nicht} automatisch sourcen lässt (und warum)}
+\begin{longtable}{@{}p{4.8cm}p{3.6cm}p{6.2cm}@{}}
+\toprule
+\textbf{Kontext} & \textbf{Auto über \code{.bashrc}?} & \textbf{Hinweis} \\
+\midrule
+Interaktives Terminal             & ja           & jede neue Shell ist fertig konfiguriert \\
+Skripte via \code{cron}/\code{systemd} & nein     & lesen \code{.bashrc} nicht -- im Skript explizit \code{source} \\
+Manche IDE-Run-Configs            & teils        & Umgebung ggf.\ in der Startkonfiguration setzen \\
+Python-venv (MuJoCo, Isaac Sim)   & bewusst nein & pro Aufgabe \code{source \textasciitilde/venvs/\ldots/bin/activate}, danach \code{deactivate} \\
+\bottomrule
+\end{longtable}
+
+\begin{warnbox}[title=venv und ROS\,2 nicht vermischen]
+Die Python-Umgebungen für MuJoCo und Isaac Sim werden \emph{nicht} in
+\code{.bashrc} aktiviert: Sie würden jede Shell mit einem fremden
+Python-Interpreter belegen und können mit dem System-Python von ROS\,2
+kollidieren. Isaac Sim und MuJoCo also gezielt im jeweiligen venv starten --
+ROS-Knoten dagegen in einer Shell, in der \emph{nur} das ROS-Setup gesourct ist.
+\end{warnbox}

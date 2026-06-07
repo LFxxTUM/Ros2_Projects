@@ -146,3 +146,176 @@ voraus: MuJoCo profitiert von einer GPU (MJX), Isaac Sim \emph{erfordert} eine
 starke NVIDIA-RTX-GPU -- das ist die wichtigste Hürde gegenüber dem leichten
 Gazebo-Setup.
 \end{infobox}
+
+% =============================================================
+\section{Praktische Einrichtung auf dem Dual-Boot-System}
+Die bisher beschriebenen Werkzeuge werden nun konkret auf dem Arbeitsrechner
+dieses Projekts installiert: einem \textbf{Dual-Boot mit Ubuntu\,24.04.4~LTS},
+ausgestattet mit einer \textbf{NVIDIA GeForce RTX\,3060 (12\,GB)}. Der
+NVIDIA-Treiber inkl.\ CUDA ist bereits aktiv (verifizierbar mit
+\code{nvidia-smi}), ebenso \code{git}, VSCode und \code{python3}. Es fehlen noch
+\code{pip}, Docker, ROS\,2, Gazebo, \code{colcon} und \code{rosdep}. Die
+folgende Reihenfolge baut das vollständige Entwicklungs- und Simulationssystem
+auf.
+
+\begin{infobox}[title=Warum die Reihenfolge zählt]
+ROS\,2 muss \emph{vor} den Simulations- und Projektpaketen liegen, weil diese
+\code{apt}-Pakete (\code{ros-jazzy-*}) auf die ROS\,2-Apt-Quelle verweisen.
+Gazebo Harmonic wird auf Jazzy nicht separat installiert, sondern kommt als
+Abhängigkeit von \code{ros-jazzy-ros-gz} mit. Der \code{colcon}-Workspace wird
+erst angelegt, nachdem ROS\,2 in der Shell verfügbar ist.
+\end{infobox}
+
+\subsection{Schritt 0 -- System aktualisieren und Basiswerkzeuge}
+\begin{lstlisting}[style=bash,caption={Systemaktualisierung und Build-Grundausstattung}]
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y build-essential cmake git wget curl \
+  gnupg lsb-release ca-certificates \
+  python3-pip python3-venv python3-dev
+\end{lstlisting}
+
+\subsection{Schritt 1 -- ROS\,2 Jazzy installieren}
+Die ROS\,2-Kerninstallation (Apt-Quelle, \code{ros-jazzy-desktop},
+\code{ros-dev-tools}, \code{colcon}, \code{rosdep}) ist in
+Kapitel~\ref{ch:installation} ausführlich beschrieben. Kurzfassung als
+Erinnerung -- gebündelt:
+\begin{lstlisting}[style=bash,caption={ROS\,2-Kern (Details siehe Kapitel ``ROS\,2 installieren'')}]
+sudo apt install -y ros-jazzy-desktop ros-dev-tools \
+  python3-colcon-common-extensions python3-rosdep
+sudo rosdep init && rosdep update
+echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc && source ~/.bashrc
+\end{lstlisting}
+
+\subsection{Schritt 2 -- Simulations- und Projektpakete (inkl.\ Gazebo Harmonic)}
+\begin{lstlisting}[style=bash,caption={Gazebo Harmonic, ros2\_control, MoveIt2, Nav2, Vision-Pipeline}]
+sudo apt install -y \
+  ros-jazzy-ros-gz ros-jazzy-gz-ros2-control \
+  ros-jazzy-ros2-control ros-jazzy-ros2-controllers \
+  ros-jazzy-moveit \
+  ros-jazzy-navigation2 ros-jazzy-nav2-bringup ros-jazzy-slam-toolbox \
+  ros-jazzy-robot-localization \
+  ros-jazzy-image-pipeline ros-jazzy-v4l2-camera ros-jazzy-vision-opencv \
+  ros-jazzy-xacro ros-jazzy-robot-state-publisher \
+  ros-jazzy-rqt ros-jazzy-rqt-graph ros-jazzy-rqt-image-view
+
+# Gazebo Harmonic kam als Abhaengigkeit mit -- pruefen:
+gz sim --version
+\end{lstlisting}
+
+\begin{warnbox}[title=\code{gz: command not found}? ROS\,2 sourcen]
+Auf Jazzy ist Gazebo Harmonic \emph{vendored}: es gibt kein systemweites
+\code{/usr/bin/gz}. Das \code{gz}-Binary liegt unter
+\code{/opt/ros/jazzy/opt/gz\_tools\_vendor/bin/} und gelangt erst durch
+\code{source /opt/ros/jazzy/setup.bash} in den \code{PATH}. Wer ros-gz in einem
+bereits geöffneten Terminal installiert, muss dieses Terminal neu starten (oder
+\code{source \textasciitilde/.bashrc} ausführen), sonst meldet die Shell
+\code{gz: command not found}, obwohl das Paket installiert ist.
+\end{warnbox}
+
+\subsection{Schritt 3 -- colcon-Workspace anlegen}
+\begin{lstlisting}[style=bash,caption={Eigener Arbeits-Workspace für die Projekt-Pakete}]
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws
+colcon build --symlink-install
+echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc && source ~/.bashrc
+# Spaeter, sobald in src/ Pakete liegen, deren Abhaengigkeiten aufloesen:
+# rosdep install --from-paths src --ignore-src -r -y
+\end{lstlisting}
+
+\subsection{Schritt 4 -- MuJoCo in einer Python-Umgebung}
+\begin{warnbox}[title=Ubuntu 24.04 ist ``externally managed'' (PEP 668)]
+Ein systemweites \code{pip install} schlägt unter Ubuntu\,24.04 fehl. Für
+eigenständige Simulations-/RL-Skripte (MuJoCo, JAX) eine \textbf{virtuelle
+Umgebung} (\code{venv}) nutzen. Diese venv \emph{nicht} gleichzeitig mit dem
+ROS\,2-Setup aktivieren, wenn ROS-Knoten laufen sollen -- sie ist für
+ROS-unabhängige Skripte gedacht.
+\end{warnbox}
+\begin{lstlisting}[style=bash,caption={MuJoCo und der GPU-Pfad MJX}]
+python3 -m venv ~/venvs/robotics
+source ~/venvs/robotics/bin/activate
+pip install --upgrade pip
+pip install mujoco numpy scipy matplotlib
+# GPU-beschleunigtes RL (nutzt die RTX 3060):
+pip install "jax[cuda12]" mujoco-mjx
+python -c "import mujoco; print(mujoco.__version__)"
+deactivate
+\end{lstlisting}
+
+\subsection{Schritt 5 -- NVIDIA Isaac Sim (optional)}
+Die RTX\,3060 mit 12\,GB VRAM erfüllt die Mindestanforderung für Isaac Sim;
+für große, photorealistische Szenen bleibt der Speicher aber knapp. Isaac Sim
+lohnt sich hier vor allem zur Erzeugung gelabelter Trainingsbilder für die
+Ballerkennung.
+\begin{lstlisting}[style=bash,caption={Isaac Sim über den pip-Workflow}]
+nvidia-smi   # Treiber/CUDA verifizieren (hier bereits aktiv)
+python3 -m venv ~/venvs/isaac
+source ~/venvs/isaac/bin/activate
+pip install --upgrade pip
+pip install isaacsim --extra-index-url https://pypi.nvidia.com
+# Hinweis: die von NVIDIA unterstuetzte Python-Version laut Doku beachten.
+# Alternative: Omniverse-/Isaac-Launcher (grafischer Installer von NVIDIA).
+\end{lstlisting}
+
+\subsection{Schritt 6 -- VSCode-Erweiterungen}
+\begin{lstlisting}[style=bash,caption={Erweiterungen für ROS\,2-Entwicklung}]
+code --install-extension ms-iot.vscode-ros      # ROS-Integration
+code --install-extension ms-python.python       # Python
+code --install-extension ms-vscode.cpptools     # C/C++
+code --install-extension ms-vscode.cmake-tools  # CMake/colcon
+code --install-extension redhat.vscode-xml      # URDF/Xacro
+code --install-extension redhat.vscode-yaml     # Launch-/Param-Dateien
+\end{lstlisting}
+
+\subsection{Schritt 7 -- micro-ROS-Agent für den ESP32}
+Der \textbf{micro-ROS-Agent} verbindet den ESP32 (TMC2209-Ansteuerung) mit dem
+ROS\,2-Graphen. Der einfachste Weg ist das offizielle Docker-Image:
+\begin{lstlisting}[style=bash,caption={micro-ROS-Agent via Docker (serielle Brücke)}]
+sudo apt install -y docker.io
+sudo usermod -aG docker $USER     # danach einmal ab- und wieder anmelden
+# ESP32 am USB (/dev/ttyUSB0), 115200 Baud:
+docker run -it --rm --net=host --device=/dev/ttyUSB0 \
+  microros/micro-ros-agent:jazzy serial --dev /dev/ttyUSB0 -b 115200
+\end{lstlisting}
+
+\subsection{Schritt 8 -- GPU-Rendering (EGL) für Gazebo-Kamerasensoren}
+Startet Gazebo auf diesem System, erscheinen trotz funktionierender 3D-Ansicht
+oft Warnungen wie:
+\begin{lstlisting}[style=bash,caption={EGL-Warnungen beim Gazebo-Start (Ausgabe, kein Befehl)}]
+libEGL warning: egl: failed to create dri2 screen
+libEGL warning: pci id for fd 117: 10de:2504, driver (null)
+\end{lstlisting}
+\textbf{Ursache:} Es sind zwei EGL-Treiber registriert -- \code{10\_nvidia.json}
+und \code{50\_mesa.json} (in \code{/usr/share/glvnd/egl\_vendor.d/}). Bei nur
+\emph{einer} NVIDIA-GPU (hier die RTX\,3060, PCI-ID \code{10de:2504}) probiert
+die glvnd-Schicht zuerst den Mesa-Treiber auf der NVIDIA-Karte, der dort keinen
+DRI-Treiber findet (\code{driver (null)}), und fällt erst danach auf den
+NVIDIA-Treiber zurück -- deshalb erscheint das Bild trotz der Warnung.
+
+\textbf{Warum das wichtig ist:} Die GUI rendert ohnehin über NVIDIA. Kritisch
+ist das \emph{Off-Screen-Rendering der simulierten Kamerasensoren}, das Gazebo
+über EGL ausführt -- die Grundlage der Stereokamera-Projekte. Fällt EGL auf die
+Mesa-Software zurück, wird die Sensorbild-Erzeugung langsam oder fehlerhaft.
+
+\textbf{Behebung:} glvnd auf den NVIDIA-Treiber festlegen. Da nur \emph{eine}
+NVIDIA-GPU verbaut ist, ist das gefahrlos -- dauerhaft in
+\code{\textasciitilde/.bashrc}:
+\begin{lstlisting}[style=bash,caption={NVIDIA-EGL erzwingen}]
+export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+\end{lstlisting}
+
+\begin{warnbox}[title=Nur bei Single-NVIDIA-GPU]
+Diese Zeile zwingt \emph{alle} EGL-Anwendungen auf den NVIDIA-Treiber. Auf einem
+Rechner ohne NVIDIA-GPU (oder headless ohne GPU) muss sie wieder entfernt
+werden. Auf Hybrid-Laptops (Intel\,+\,NVIDIA) stattdessen das Render-Offload
+nutzen: \code{\_\_NV\_PRIME\_RENDER\_OFFLOAD=1
+\_\_GLX\_VENDOR\_LIBRARY\_NAME=nvidia gz sim \ldots}
+\end{warnbox}
+
+\begin{infobox}[title=Schnelltest des Gesamtsystems]
+Nach Schritt~3 lässt sich die Installation verifizieren:
+\code{ros2 run demo\_nodes\_cpp talker} in einem Terminal,
+\code{ros2 run demo\_nodes\_py listener} in einem zweiten -- die Nachrichten
+müssen ankommen. \code{gz sim shapes.sdf} startet Gazebo Harmonic mit einer
+Testwelt; \code{rviz2} öffnet die Visualisierung. Damit stehen
+\emph{Kommunikation}, \emph{Simulation} und \emph{Visualisierung}.
+\end{infobox}

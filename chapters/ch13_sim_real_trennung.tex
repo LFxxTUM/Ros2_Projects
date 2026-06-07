@@ -43,3 +43,54 @@ ESP32 schickt (micro-ROS oder serielle Brücke) und Gelenkzustände
 Topics, dieselbe Trajektorie} -- du tauschst eine Plugin-Zeile und die
 Hardware. Genauso bei der Kamera: simulierte Bildquelle vs.\ \code{v4l2\_camera}
 -- die nachgelagerte Vision-Pipeline merkt keinen Unterschied.
+
+% =============================================================
+\section{Der vollständige Weg: von der frischen Ubuntu-Installation zum Roboter}
+Die in Kapitel~\ref{ch:installation} und im vorigen Kapitel beschriebene
+Einrichtung und die hier gezeigte Sim-Real-Architektur greifen zu \emph{einem}
+durchgängigen Arbeitsablauf ineinander. Auf dem Dual-Boot-System
+(Ubuntu\,24.04.4~LTS, RTX\,3060) folgt die Entwicklung dieser Reihenfolge --
+jede Phase baut auf der vorigen auf, und der Übergang von Simulation zu realer
+Hardware ist genau der oben gezeigte Plugin-Tausch.
+
+\begin{enumerate}
+\item \textbf{System aufsetzen.} Frisches Ubuntu\,24.04, NVIDIA-Treiber aktiv,
+  ROS\,2 Jazzy, Gazebo Harmonic, \code{ros2\_control}, Vision-/Nav2-Pakete,
+  \code{colcon}-Workspace (Schritte~0--3 des vorigen Kapitels). Verifikation:
+  \code{talker}/\code{listener} und eine Gazebo-Testwelt laufen.
+\item \textbf{Roboter modellieren.} URDF/Xacro mit Links, Gelenken, Trägheiten
+  und Sensoren erstellen (folgendes Kapitel zu CAD\,$\to$\,URDF). In dieser
+  Datei steht bereits das \code{ros2\_control}-Tag -- zunächst mit dem
+  \emph{Simulations}-Plugin \code{gz\_ros2\_control/GazeboSimSystem}.
+\item \textbf{In Simulation entwickeln.} Roboter in Gazebo Harmonic laden,
+  \code{controller\_manager} mit \code{joint\_trajectory\_controller} und
+  \code{joint\_state\_broadcaster} starten. High-Level-Logik --
+  Trajektorienplaner, Kalman-Filter, Vision-Pipeline, Nav2/MoveIt2 --
+  vollständig gegen die simulierte Maschine entwickeln und testen.
+\item \textbf{Regelung/Wahrnehmung verfeinern (optional).} Schlag-/Kontakt\-%
+  dynamik oder eine gelernte Politik in \textbf{MuJoCo/MJX} trainieren,
+  photorealistische, gelabelte Trainingsbilder für die Ballerkennung in
+  \textbf{Isaac Sim} erzeugen. Die fertigen Knoten bleiben unverändert.
+\item \textbf{Auf reale Hardware umschalten.} In der URDF das Hardware-Interface
+  von \code{gz\_ros2\_control} auf das eigene
+  \code{hardware\_interface::SystemInterface} (micro-ROS/Serial
+  $\rightarrow$ ESP32 $\rightarrow$ TMC2209) umstellen; reale Kamera über
+  \code{v4l2\_camera} statt simulierter Bildquelle. \textbf{Controller, Topics,
+  Trajektorien und alle High-Level-Knoten bleiben identisch} -- siehe das
+  Schichtdiagramm oben.
+\item \textbf{Gegentesten.} Dieselben Testfälle, die in Simulation liefen, auf
+  der echten Maschine fahren. Jetzt -- und erst jetzt -- treten die in
+  Kapitel~\ref{ch:installation} bzw.\ im Simulationskapitel benannten
+  realen Effekte zutage: Kamerarauschen, Schrittverluste, Kontakt- und
+  Latenzverhalten.
+\end{enumerate}
+
+\begin{infobox}[title=Was an dieser Reihenfolge entscheidend ist]
+Die Trennlinie zwischen Simulation und Realität verläuft \emph{nicht} quer durch
+den Code, sondern sauber an \emph{einer} Schicht -- dem Hardware-Interface. Die
+gesamte oben aufgebaute Software-Umgebung (ROS\,2, Gazebo, MuJoCo, Isaac Sim)
+dient dazu, möglichst viel \emph{vor} dem Hardware-Tausch abzusichern. Was in
+Simulation funktioniert, läuft nach dem Plugin-Wechsel ohne Änderung an der
+Logik auf dem realen Roboter -- abzüglich der physikalischen Effekte, die nur
+die Hardware zeigt.
+\end{infobox}

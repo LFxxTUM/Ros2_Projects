@@ -1,0 +1,15 @@
+# LaTeX build output (latexmk writes everything here, see .latexmkrc)
+build/
+
+# Stray LaTeX aux files, in case anything is built outside build/
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*-blx.bib
