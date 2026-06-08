@@ -25,19 +25,18 @@ Theorie dazu in den Kapiteln~\ref{ch:stereosehen} (Stereosehen) und
 \toprule
 \textbf{Typ} & \textbf{Konkret (selbst implementiert, sofern nicht anders vermerkt)} \\
 \midrule
-Nodes    & Gazebo-Stereokamera + \code{ros\_gz}-Bridge (Standard) $\cdot$
-           \code{ball\_detector} (HSV-Erkennung links+rechts) $\cdot$
-           \code{stereo\_distance} (Triangulation $\rightarrow$ 3D) $\cdot$
-           \code{ball\_tracker} (Kalman-Filter) $\cdot$
+Nodes    & Gazebo-Stereokamera + \code{ros\_gz}-Bildbrücke (Standard) $\cdot$
+           \code{ball\_detector} (HSV-Erkennung L+R \emph{und} Triangulation) $\cdot$
+           \code{ball\_tracker} (Kalman + Vorhersage) $\cdot$
            \code{marker\_viz} (RViz-Marker) \\
-Topics   & \code{/left/image\_raw}, \code{/right/image\_raw},
-           \code{/left/camera\_info} $\cdot$
-           \code{/ball/pixel\_left}, \code{/ball/pixel\_right} $\cdot$
-           \code{/ball/position} (gemessen) $\cdot$
-           \code{/ball/estimate}, \code{/ball/prediction} (KF) \\
+Topics   & \code{/stereo/left/image}, \code{/stereo/right/image} $\cdot$
+           \code{/ball/point} (gemessen, \code{PointStamped}) $\cdot$
+           \code{/ball/estimate} (KF) $\cdot$
+           \code{/ball/prediction} (\code{nav\_msgs/Path}) $\cdot$
+           \code{/ball/markers} (\code{MarkerArray}) $\cdot$ \code{/clock}, \code{/tf} \\
 Services & \code{/tracker/reset} (KF zurücksetzen, \code{std\_srvs/Trigger}) \\
-Parameter & Ballfarbe (HSV-Bereich), Ballradius $\cdot$ Brennweite $f$,
-            Basisbreite $B$, Hauptpunkt $(c_x,c_y)$ $\cdot$ KF-Rauschen $Q,R$ \\
+Parameter & HSV-Bereich (Ballfarbe) $\cdot$ Brennweite $f$, Basisbreite $B$,
+            Hauptpunkt $(c_x,c_y)$ $\cdot$ KF-Rauschen $Q,R$, Vorhersage-Horizont \\
 \bottomrule
 \end{longtable}
 
@@ -45,16 +44,15 @@ Parameter & Ballfarbe (HSV-Bereich), Ballradius $\cdot$ Brennweite $f$,
 \begin{center}
 \begin{tikzpicture}[node distance=5mm and 11mm]
 \node[node] (cam) {/stereo\_camera\\\scriptsize (Gazebo+Bridge)};
-\node[node,right=of cam] (det) {/ball\_detector\\\scriptsize (HSV L/R)};
-\node[node,right=of det] (dist) {/stereo\_distance\\\scriptsize (Triangulation)};
-\node[node,right=of dist] (trk) {/ball\_tracker\\\scriptsize (Kalman)};
+\node[node,right=of cam] (det) {/ball\_detector\\\scriptsize (HSV L/R + Triangulation)};
+\node[node,right=of det] (trk) {/ball\_tracker\\\scriptsize (Kalman + Vorhersage)};
 \node[node,below=9mm of trk] (viz) {/marker\_viz};
 \node[node,left=of viz] (rviz) {/rviz2};
-\draw[flow] (cam) -- node[topic,fill=white,inner sep=1pt]{\scriptsize L/R img} (det);
-\draw[flow] (det) -- node[topic,fill=white,inner sep=1pt]{\scriptsize pixel L/R} (dist);
-\draw[flow] (dist) -- node[topic,fill=white,inner sep=1pt]{\scriptsize position} (trk);
-\draw[flow] (trk) -- node[topic,fill=white,inner sep=1pt]{\scriptsize estimate} (viz);
-\draw[flow] (viz) -- node[topic,fill=white,inner sep=1pt]{\scriptsize marker} (rviz);
+\draw[flow] (cam) -- node[topic,fill=white,inner sep=1pt]{\scriptsize L/R image} (det);
+\draw[flow] (det) -- node[topic,fill=white,inner sep=1pt]{\scriptsize ball/point} (trk);
+\draw[flow] (trk) -- node[topic,fill=white,inner sep=1pt]{\scriptsize estimate/pred} (viz);
+\draw[flow] (viz) -- node[topic,fill=white,inner sep=1pt]{\scriptsize markers} (rviz);
+\draw[flow] (det) to[bend right=20] node[topic,fill=white,inner sep=1pt]{\scriptsize measured} (viz);
 \end{tikzpicture}
 \captionof{figure}{Projekt~0.B: Wahrnehmungskette von der Stereokamera über
 Erkennung und Triangulation bis zum Kalman-Tracker und der RViz-Darstellung.}
@@ -66,133 +64,308 @@ seine Schätzung publiziert.}
 
 \section{Schritt für Schritt}
 
-\subsection{Schritt 1 -- Welt: Ball und Stereokamera in Gazebo}
-Eine Kugel als Ball, zwei Kamerasensoren im Abstand der Basisbreite $B$. Der
-Ball kann per kleinem Knoten bewegt oder mit Anfangsgeschwindigkeit geworfen
-werden.
-\begin{lstlisting}[style=xml,caption={\code{world/stereo.sdf} (Auszug: Ball + linke Kamera)}]
-<model name="ball">
-  <pose>2 0 1 0 0 0</pose>
-  <link name="b"><visual><geometry><sphere><radius>0.05</radius></sphere>
-    </geometry><material><ambient>1 0.2 0 1</ambient></material></visual>
-    <collision><geometry><sphere><radius>0.05</radius></sphere></geometry></collision>
-    <inertial><mass>0.05</mass></inertial></link>
+\subsection{Schritt 0 -- Paket anlegen (ein Workspace für alle Projekte)}
+Ein colcon-Workspace fasst beliebig viele Pakete; Projekt~0.B kommt deshalb als
+weiteres Paket in dasselbe \code{\textasciitilde/ros2\_ws} neben die 0.A-Pakete --
+\emph{kein} neuer Workspace nötig. \textbf{Lehre aus 0.A:} hier brauchen wir
+\emph{keine} eigenen Interfaces; Standardnachrichten reichen
+(\code{geometry\_msgs}, \code{nav\_msgs/Path}, \code{visualization\_msgs},
+\code{std\_srvs}). Das erspart das gesamte
+\code{rosidl}/\code{ament\_cmake}-Drumherum.
+\begin{lstlisting}[style=bash,caption={Paket anlegen}]
+cd ~/ros2_ws/src
+ros2 pkg create --build-type ament_python p0b_stereo --license Apache-2.0 \
+  --dependencies rclpy sensor_msgs geometry_msgs nav_msgs \
+                 visualization_msgs std_srvs cv_bridge message_filters
+mkdir -p p0b_stereo/{worlds,launch,config,p0b_stereo}
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 0 (\# neu)}]
+src/p0b_stereo/   # neu -- ament_python, Standard-Messages (keine Interfaces!)
+\end{lstlisting}
+
+\subsection{Schritt 1 -- Welt: Ball und Stereokamera}
+Zwei Kamerasensoren im Abstand der Basisbreite $B=0{,}10\,$m, Blick entlang
+$+x$, und ein orangefarbener Ball (dynamisch -- er fällt und lässt sich in der
+GUI mit der Maus bewegen). Wichtig: \code{<optical\_frame\_id>} setzt den Rahmen,
+in dem wir später die 3D-Punkte veröffentlichen.
+\begin{lstlisting}[style=xml,caption={\code{worlds/stereo.sdf} (Auszug -- Ground/Sun/Plugins analog)}]
+<model name="stereo_rig"><static>true</static><pose>0 0 1 0 0 0</pose>
+  <link name="base">
+    <visual name="body">          <!-- sichtbarer Koerper des Rigs in Gazebo -->
+      <geometry><box><size>0.05 0.18 0.05</size></box></geometry></visual>
+    <sensor name="left" type="camera">
+      <pose>0 0.05 0 0 0 0</pose>           <!-- +B/2 -->
+      <topic>/stereo/left/image</topic>
+      <update_rate>30</update_rate><always_on>1</always_on>
+      <camera><horizontal_fov>1.047</horizontal_fov>
+        <image><width>640</width><height>480</height></image>
+        <optical_frame_id>stereo_left_optical</optical_frame_id></camera>
+    </sensor>
+    <sensor name="right" type="camera">
+      <pose>0 -0.05 0 0 0 0</pose>          <!-- -B/2 -->
+      <topic>/stereo/right/image</topic>
+      <update_rate>30</update_rate><always_on>1</always_on>
+      <camera><horizontal_fov>1.047</horizontal_fov>
+        <image><width>640</width><height>480</height></image>
+        <optical_frame_id>stereo_right_optical</optical_frame_id></camera>
+    </sensor>
+  </link>
 </model>
 
-<model name="stereo_rig"><static>true</static><pose>0 0 1 0 0 0</pose>
-  <link name="cam_left"><pose>0 0.05 0 0 0 0</pose>
-    <sensor name="left" type="camera"><update_rate>30</update_rate>
-      <topic>left/image_raw</topic>
-      <camera><horizontal_fov>1.047</horizontal_fov>
-        <image><width>640</width><height>480</height></image></camera>
-    </sensor></link>
-  <link name="cam_right"><pose>0 -0.05 0 0 0 0</pose>
-    <sensor name="right" type="camera"><update_rate>30</update_rate>
-      <topic>right/image_raw</topic>
-      <camera><horizontal_fov>1.047</horizontal_fov>
-        <image><width>640</width><height>480</height></image></camera>
-    </sensor></link>
+<model name="ball"><pose>3 0 1.5 0 0 0</pose>
+  <link name="link">
+    <inertial><mass>0.05</mass><inertia><ixx>7.2e-5</ixx><iyy>7.2e-5</iyy>
+      <izz>7.2e-5</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia></inertial>
+    <collision name="c"><geometry><sphere><radius>0.06</radius></sphere></geometry></collision>
+    <visual name="v"><geometry><sphere><radius>0.06</radius></sphere></geometry>
+      <material><ambient>1 0.25 0 1</ambient><diffuse>1 0.25 0 1</diffuse></material></visual>
+  </link>
 </model>
 \end{lstlisting}
-\noindent Hier ist die Basisbreite $B = 0{,}10\,$m (linke Kamera $+0{,}05$,
-rechte $-0{,}05$). Start: \code{ros2 launch ros\_gz\_sim gz\_sim.launch.py
-gz\_args:="world/stereo.sdf"}.
+\noindent Die vollständige Datei (mit \code{ground}, \code{sun} und den
+Gazebo-\code{system}-Plugins inkl.\ \code{Sensors}/\code{ogre2}) liegt in
+\code{worlds/stereo.sdf}; gestartet wird sie über die Launch-Datei aus
+Schritt~6.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 1 (\# neu)}]
+src/p0b_stereo/worlds/stereo.sdf   # neu (Stereo-Rig + Ball + Welt)
+\end{lstlisting}
 
-\subsection{Schritt 2 -- Bilder nach ROS\,2 brücken}
-\begin{lstlisting}[style=bash,caption={\code{ros\_gz}-Bridge für Bilder + CameraInfo}]
-ros2 run ros_gz_image image_bridge /left/image_raw /right/image_raw
-ros2 run ros_gz_bridge parameter_bridge \
-  /left/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo
+\begin{infobox}[title={SDF (0.B) vs.\ URDF/Xacro (0.A) -- der Unterschied}]
+\textbf{URDF/Xacro} (Projekt~0.A, \code{arm.urdf.xacro}) beschreibt \emph{einen
+Roboter} als kinematischen Baum aus Links und Joints. Es ist ein \emph{ROS}-Format:
+\code{robot\_state\_publisher}, \code{ros2\_control} und RViz lesen es direkt;
+Xacro ist nur ein Makro-Präprozessor darüber. Sensoren und Physik müssen über
+\code{<gazebo>}-Erweiterungen angehängt werden.
+
+\textbf{SDF} (Projekt~0.B, \code{stereo.sdf}) ist das \emph{native Format von
+Gazebo} und beschreibt eine ganze \emph{Welt}: Licht, Boden, mehrere Modelle,
+\textbf{Sensoren} (Kamera, IMU, LiDAR) und \textbf{System-Plugins} (Physik,
+Rendering) -- alles erstklassig. ROS kennt SDF nicht direkt; die Verbindung
+entsteht über \code{ros\_gz}-Brücken.
+
+\textbf{Faustregel:} \emph{einen Roboter} für ROS beschreiben $\rightarrow$
+URDF/Xacro (wird beim Spawnen intern nach SDF gewandelt). \emph{Eine
+Simulationswelt mit Sensoren} bauen $\rightarrow$ SDF. In 0.A war der Arm der
+Gegenstand (URDF, in Gazebo gespawnt); in 0.B ist die Kamera-Welt der Gegenstand
+(SDF), und die Wahrnehmungsknoten leben rein in ROS.
+\end{infobox}
+
+\subsection{Schritt 2 -- Bilder und Zeit nach ROS bruecken}
+Die Bilder bringt die \code{ros\_gz}-Bildbrücke nach ROS; die Simulationszeit
+(\code{/clock}) braucht eine eigene Brücke -- \textbf{exakt die Lehre aus 0.A}:
+ohne \code{/clock} stehen alle \code{use\_sim\_time}-Knoten ohne Uhr da.
+\begin{lstlisting}[style=bash,caption={Brücken (in der Launch-Datei aus Schritt 6 gebündelt)}]
+ros2 run ros_gz_image image_bridge /stereo/left/image /stereo/right/image
+ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
 \end{lstlisting}
 \screenshotplaceholder{p0b-image-view}{\code{rqt\_image\_view} auf
-\code{/left/image\_raw}: bestätigt, dass die simulierte Kamera den Ball liefert,
-bevor wir erkennen.}
+\code{/stereo/left/image}: bestätigt, dass die simulierte Kamera den Ball
+liefert, bevor erkannt wird.}
 
 \subsection{Schritt 3 -- Objekterkennung (OpenCV, HSV)}
-In \emph{beiden} Bildern den Ball über seine Farbe finden und den Mittelpunkt
-$(u,v)$ bestimmen.
-\begin{lstlisting}[style=py,caption={\code{ball\_detector} -- Kern (pro Bild)}]
-import cv2, numpy as np
-from cv_bridge import CvBridge
-bridge = CvBridge()
-
-def detect_ball(img_msg, hsv_lo, hsv_hi):
-    img = bridge.imgmsg_to_cv2(img_msg, 'bgr8')
+In beiden Bildern den Ball über seine Farbe finden und den Pixelmittelpunkt
+$(u,v)$ bestimmen (Kern des \code{ball\_detector}):
+\begin{lstlisting}[style=py,caption={HSV-Erkennung (Methode \code{detect})}]
+def detect(self, img_msg):
+    img = self.bridge.imgmsg_to_cv2(img_msg, 'bgr8')
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, np.array(hsv_lo), np.array(hsv_hi))
+    mask = cv2.inRange(hsv, self.lo, self.hi)     # self.lo/hi = HSV-Grenzen
     cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not cnts:
         return None
-    (u, v), _ = cv2.minEnclosingCircle(max(cnts, key=cv2.contourArea))
-    return float(u), float(v)        # Pixelmittelpunkt
+    (u, v), r = cv2.minEnclosingCircle(max(cnts, key=cv2.contourArea))
+    return (float(u), float(v)) if r >= 3.0 else None
 \end{lstlisting}
-\screenshotplaceholder{p0b-detection}{Linkes Kamerabild mit eingezeichnetem
-Erkennungskreis/Mittelpunkt. Zeigt, dass die HSV-Schwellen den Ball sauber
-isolieren.}
+\screenshotplaceholder{p0b-detection}{Kamerabild mit erkanntem Ball
+(Mittelpunkt/Kreis). Belegt, dass die HSV-Schwellen den Ball isolieren.}
 
-\subsection{Schritt 4 -- Entfernung per Triangulation (selbst)}
-Bei achsparalleler (rektifizierter) Stereoanordnung ist die Disparität
-$d = u_\text{L}-u_\text{R}$. Mit Brennweite $f$ (Pixel) und Basisbreite $B$:
+\subsection{Schritt 4 -- Triangulation und der vollständige Detektor}
+Bei achsparalleler Stereoanordnung ist die Disparität $d=|u_L-u_R|$; mit
+Brennweite $f$ (Pixel) und Basisbreite $B$:
 \begin{align*}
-Z = \frac{f\,B}{d}, \qquad
-X = \frac{(u_\text{L}-c_x)\,Z}{f}, \qquad
-Y = \frac{(v_\text{L}-c_y)\,Z}{f}.
+Z=\frac{f\,B}{d},\qquad X=\frac{(u_L-c_x)\,Z}{f},\qquad Y=\frac{(v_L-c_y)\,Z}{f}.
 \end{align*}
-\begin{lstlisting}[style=py,caption={\code{stereo\_distance} -- Triangulation}]
-def triangulate(uL, vL, uR, f, B, cx, cy):
-    d = uL - uR
-    if d <= 1e-6:                    # zu klein -> unendlich/ungueltig
-        return None
-    Z = f * B / d
-    X = (uL - cx) * Z / f
-    Y = (vL - cy) * Z / f
-    return (X, Y, Z)                 # 3D-Position im Kamerasystem
+$f,c_x,c_y$ berechnen wir aus den bekannten Kameraparametern
+($f=\tfrac{w/2}{\tan(\text{hfov}/2)}$) -- so ist \emph{keine}
+\code{camera\_info}-Brücke nötig (eine Fehlerquelle weniger). Beide Bilder werden
+per \code{ApproximateTimeSynchronizer} zum selben Zeitpunkt zusammengeführt:
+\begin{lstlisting}[style=py,caption={\code{p0b\_stereo/ball\_detector.py} (Kern)}]
+class BallDetector(Node):
+    def __init__(self):
+        super().__init__('ball_detector')
+        w, h, hfov = 640, 480, 1.047
+        self.f = (w/2.0) / np.tan(hfov/2.0)          # Brennweite [px]
+        self.cx, self.cy, self.B = w/2.0, h/2.0, 0.10
+        self.frame_id = 'stereo_left_optical'
+        self.lo = np.array([3, 120, 70]); self.hi = np.array([25, 255, 255])
+        self.bridge = CvBridge()
+        self.pub = self.create_publisher(PointStamped, '/ball/point', 10)
+        left  = Subscriber(self, Image, '/stereo/left/image')
+        right = Subscriber(self, Image, '/stereo/right/image')
+        self.sync = ApproximateTimeSynchronizer([left, right], 10, 0.05)
+        self.sync.registerCallback(self.on_pair)
+
+    def on_pair(self, left_msg, right_msg):
+        L, R = self.detect(left_msg), self.detect(right_msg)
+        if L is None or R is None: return
+        (uL, vL), (uR, _) = L, R
+        d = abs(uL - uR)
+        if d < 1e-3: return                          # Objekt zu weit / kein Match
+        Z = self.f * self.B / d
+        X = (uL - self.cx) * Z / self.f
+        Y = (vL - self.cy) * Z / self.f
+        msg = PointStamped()
+        msg.header.stamp = left_msg.header.stamp
+        msg.header.frame_id = self.frame_id
+        msg.point.x, msg.point.y, msg.point.z = float(X), float(Y), float(Z)
+        self.pub.publish(msg)
 \end{lstlisting}
-$f$ und $(c_x,c_y)$ stammen aus \code{/left/camera\_info}; $B$ ist die in
-Schritt~1 gesetzte Basisbreite. Vertiefung: Kapitel~\ref{ch:stereosehen} und
+\noindent Im echten Knoten sind HSV, $B$ und Brennweite über
+\code{declare\_parameter} einstellbar. Vertiefung: Kapitel~\ref{ch:stereosehen},
 \ref{ch:kalibrierung}.
-
-\subsection{Schritt 5 -- Kalman-Filter (selbst implementiert)}
-Lineares Modell mit konstanter Geschwindigkeit (Zustand
-$\mathbf{x}=[X,Y,Z,\dot X,\dot Y,\dot Z]^\top$). Prädiktion und Korrektur:
-\begin{align*}
-\text{Prädiktion:}\quad & \hat{\mathbf{x}}^- = F\hat{\mathbf{x}},\quad
-  P^- = F P F^\top + Q\\
-\text{Korrektur:}\quad & K = P^- H^\top (H P^- H^\top + R)^{-1},\quad
-  \hat{\mathbf{x}} = \hat{\mathbf{x}}^- + K(\mathbf{z}-H\hat{\mathbf{x}}^-)
-\end{align*}
-\begin{lstlisting}[style=py,caption={\code{ball\_tracker} -- KF-Kern (NumPy)}]
-import numpy as np
-
-class KF:
-    def __init__(self, dt):
-        self.x = np.zeros(6); self.P = np.eye(6)
-        self.F = np.eye(6); self.F[0,3]=self.F[1,4]=self.F[2,5]=dt
-        self.H = np.zeros((3,6)); self.H[0,0]=self.H[1,1]=self.H[2,2]=1
-        self.Q = np.eye(6)*1e-3; self.R = np.eye(3)*4e-4
-
-    def predict(self):
-        self.x = self.F @ self.x
-        self.P = self.F @ self.P @ self.F.T + self.Q
-        return self.x[:3]
-
-    def update(self, z):             # z = gemessene (X,Y,Z)
-        S = self.H @ self.P @ self.H.T + self.R
-        K = self.P @ self.H.T @ np.linalg.inv(S)
-        self.x = self.x + K @ (np.asarray(z) - self.H @ self.x)
-        self.P = (np.eye(6) - K @ self.H) @ self.P
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 4 (\# neu / \# angepasst)}]
+src/p0b_stereo/
+|- setup.py                     # angepasst: entry_points -> ball_detector
+`- p0b_stereo/ball_detector.py  # neu (Erkennung + Triangulation)
 \end{lstlisting}
-\noindent Reine \code{predict}-Schritte ohne \code{update} liefern die
-\textbf{Vorhersage} künftiger Positionen -- die Grundlage für das Abfangen in
-Projekt~2.
 
-\subsection{Schritt 6 -- Visualisierung in RViz (Marker)}
-Gemessene Position, KF-Schätzung und Prädiktion als
-\code{visualization\_msgs/Marker} publizieren (z.\,B.\ rote, grüne und blaue
-Kugeln) und in RViz unter \emph{Fixed Frame} der Kamera anzeigen.
+\subsection{Schritt 5 -- Kalman-Tracker mit Vorhersage}
+Lineares Modell konstanter Geschwindigkeit, Zustand
+$\mathbf{x}=[X,Y,Z,\dot X,\dot Y,\dot Z]^\top$:
+\begin{align*}
+\hat{\mathbf{x}}^- = F\hat{\mathbf{x}},\ P^-=FPF^\top+Q;\qquad
+K=P^-H^\top(HP^-H^\top+R)^{-1},\ \hat{\mathbf{x}}=\hat{\mathbf{x}}^-+K(\mathbf z-H\hat{\mathbf x}^-).
+\end{align*}
+\begin{lstlisting}[style=py,caption={\code{p0b\_stereo/ball\_tracker.py} (Kern)}]
+def on_point(self, msg):
+    t = msg.header.stamp.sec + msg.header.stamp.nanosec*1e-9
+    z = np.array([msg.point.x, msg.point.y, msg.point.z])
+    if not self.initialized:
+        self.x[:3] = z; self.initialized = True; self.last_t = t; return
+    dt = max(1e-3, t - self.last_t); self.last_t = t
+    F = self._F(dt)
+    self.x = F @ self.x                                # Praediktion
+    self.P = F @ self.P @ F.T + self.Q
+    S = self.H @ self.P @ self.H.T + self.R            # Korrektur
+    K = self.P @ self.H.T @ np.linalg.inv(S)
+    self.x = self.x + K @ (z - self.H @ self.x)
+    self.P = (np.eye(6) - K @ self.H) @ self.P
+    self._publish(msg.header.stamp, dt)
+\end{lstlisting}
+\noindent \code{\_publish} sendet \code{/ball/estimate} und integriert den
+Zustand \emph{ohne} Messung $N$ Schritte vorwärts -- das ergibt
+\code{/ball/prediction} (\code{nav\_msgs/Path}), die Grundlage fürs Abfangen in
+Projekt~2. Ein \code{/tracker/reset} (\code{std\_srvs/Trigger}) nullt den Filter.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 5 (\# neu / \# angepasst)}]
+src/p0b_stereo/
+|- setup.py                    # angepasst: entry_points -> ball_tracker
+`- p0b_stereo/ball_tracker.py  # neu (Kalman + Vorhersage + reset-Service)
+\end{lstlisting}
+
+\subsection{Schritt 6 -- Marker in RViz und alles starten}
+\code{marker\_viz} macht Messung (rot), Schätzung (grün) und Vorhersage (blaue
+Linie) als \code{MarkerArray} sichtbar:
+\begin{lstlisting}[style=py,caption={\code{p0b\_stereo/marker\_viz.py} (Kern)}]
+def on_meas(self, msg):   # rote Kugel an der gemessenen Position
+    self._emit(self._sphere('measured', msg.point, (1, 0.1, 0),
+                            msg.header.frame_id, msg.header.stamp, 0.08))
+
+def on_pred(self, msg):   # blaue Linie entlang der Vorhersage
+    m = Marker(); m.header = msg.header; m.ns = 'prediction'
+    m.type = Marker.LINE_STRIP; m.action = Marker.ADD
+    m.scale.x = 0.02; m.color.b = 1.0; m.color.a = 1.0
+    m.points = [ps.pose.position for ps in msg.poses]
+    self._emit(m)
+\end{lstlisting}
+\noindent Eine Launch-Datei startet alles in \emph{einem} Befehl -- Gazebo,
+\code{/clock}-Brücke, Bildbrücke, eine statische TF (damit der Kamerarahmen in
+RViz existiert -- Lehre aus 0.A), die drei Knoten und RViz, alle mit
+\code{use\_sim\_time}:
+\begin{lstlisting}[style=py,caption={\code{launch/stereo.launch.py} (Knotenliste)}]
+return LaunchDescription([
+    gz,             # ros_gz_sim + worlds/stereo.sdf  (gz_args: '-r')
+    clock_bridge,   # /clock  (gz -> ROS)
+    image_bridge,   # /stereo/left|right/image
+    static_tf,      # world -> stereo_left_optical
+    detector, tracker, viz,   # parameters=[{'use_sim_time': True}]
+    rviz,           # -d config/stereo.rviz
+])
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- bauen, sourcen, alles starten}]
+cd ~/ros2_ws
+colcon build --packages-select p0b_stereo
+source install/setup.bash
+ros2 launch p0b_stereo stereo.launch.py
+\end{lstlisting}
+\noindent Die Launch-Datei startet \emph{auch} die beiden Brücken aus Schritt~2
+(Bild + \code{/clock}). Startet man die Knoten \emph{einzeln} (z.\,B.\ zum
+Debuggen), müssen diese Brücken in einem eigenen Terminal laufen -- aber
+\textbf{nicht zusätzlich} zur Launch, sonst doppelte Publisher:
+\begin{lstlisting}[style=bash,caption={Brücken (nur bei manuellem Start nötig)}]
+ros2 run ros_gz_image image_bridge /stereo/left/image /stereo/right/image
+ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- mitlesen / Filter zuruecksetzen}]
+source ~/ros2_ws/install/setup.bash
+ros2 topic echo /ball/point                        # gemessene 3D-Position
+ros2 service call /tracker/reset std_srvs/srv/Trigger {}
+\end{lstlisting}
+\noindent \textbf{Tipp:} Den Ball in Gazebo mit der Maus greifen und bewegen --
+Messung, Schätzung und Vorhersage folgen in RViz. \textbf{Sichtfeld im Blick
+behalten:} RViz zeigt die beiden Kamerabilder (\code{/stereo/left|right/image});
+der Ball wird nur verfolgt, solange er in \emph{beiden} sichtbar ist. Verlässt er
+das Bild, erkennt \code{ball\_detector} nichts mehr und die Marker bleiben auf der
+letzten Position stehen -- kein Fehler. Das schwarze Rig-Kästchen zeigt die
+Kameraposition in Gazebo.
 \screenshotplaceholder{p0b-rviz-markers}{RViz mit drei Markern: gemessene
-Ballposition, geglättete KF-Schätzung und prädizierte Bahn. Zeigt, wie der
-Filter Messrauschen glättet und vorausschätzt.}
+Ballposition (rot), Kalman-Schätzung (grün) und prädizierte Bahn (blau) -- der
+Filter glättet das Messrauschen und schätzt voraus.}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 6 (\# neu / \# angepasst)}]
+src/p0b_stereo/
+|- setup.py                  # angepasst: entry_points -> marker_viz, data_files
+|- p0b_stereo/marker_viz.py  # neu (MarkerArray fuer RViz)
+|- launch/stereo.launch.py   # neu (alles in einem Start)
+`- config/stereo.rviz        # neu (Fixed Frame, MarkerArray, Image)
+\end{lstlisting}
+
+\section{Häufige Fehler und Checkliste (Projekt 0.B)}
+\begin{warnbox}[title={Stolpersteine -- vieles aus 0.A übertragbar}]
+\begin{itemize}
+\item \textbf{\code{/clock} nicht gebrückt / \code{use\_sim\_time} fehlt.} Wie in
+  0.A: ohne \code{/clock}-Brücke und \code{use\_sim\_time:=true} fehlt die
+  gemeinsame Zeit -- RViz zeigt nichts oder ``No transform''.
+\item \textbf{Kamerarahmen existiert nicht in RViz.} \code{<optical\_frame\_id>}
+  in der SDF setzen \emph{und} eine statische TF (\code{world\,$\rightarrow$\,%
+  stereo\_left\_optical}) publizieren -- sonst ``Fixed Frame does not exist''.
+\item \textbf{Kein Kamerabild (EGL/Headless).} Die Gazebo-\code{Sensors} brauchen
+  einen funktionierenden Renderer (\code{ogre2}); auf der RTX\,3060 hilft die
+  EGL-Einstellung aus dem Simulationskapitel -- sonst bleiben die Bild-Topics leer.
+\item \textbf{HSV-Bereich zu eng/weit.} Kein Blob $\Rightarrow$ keine Punkte. Mit
+  \code{rqt\_image\_view} und der Maske abstimmen; Beleuchtung der Welt beachten.
+\item \textbf{Disparität $\le 0$.} Bei vertauschter Links/Rechts-Zuordnung wird
+  $d$ negativ; wir nehmen $|u_L-u_R|$ und verwerfen $d\approx 0$ (Objekt zu weit).
+\item \textbf{Bilder nicht synchron.} Ohne \code{ApproximateTimeSynchronizer}
+  trianguliert man Links/Rechts aus verschiedenen Frames -- springende Tiefe.
+\item \textbf{NumPy-Skalare in ROS-Felder.} \code{msg.point.x} erwartet ein
+  Python-\code{float} -- mit \code{float(\ldots)} casten.
+\item \textbf{Unnötige Custom-Interfaces.} Standardnachrichten nutzen
+  (\code{geometry\_msgs}, \code{nav\_msgs/Path}, \code{visualization\_msgs}) --
+  spart das \code{rosidl}-Drumherum aus 0.A.
+\item \textbf{``Stereo is NOT SUPPORTED'' von RViz.} Harmlos -- gemeint ist
+  OpenGL-3D-Brillen-Stereo, nicht die Stereokamera. Ignorieren.
+\item \textbf{Marker stehen still / kein \code{/ball/point} mehr.} Der Ball ist
+  nicht in \emph{beiden} Kamerabildern. Die Image-Panels in RViz beobachten und
+  den Ball im gemeinsamen Sichtfeld halten -- erwartetes Verhalten, kein Bug.
+\end{itemize}
+\end{warnbox}
+\begin{infobox}[title=Schnelle Prüfbefehle]
+\begin{lstlisting}[style=bash]
+ros2 topic hz /stereo/left/image     # liefert die Kamera Bilder?
+ros2 topic echo /ball/point          # wird erkannt + trianguliert?
+ros2 topic echo /ball/estimate       # schaetzt der Kalman-Filter?
+rqt_graph                            # haengt die Kette zusammen?
+\end{lstlisting}
+\end{infobox}
 
 \section{Was du danach beherrschst}
 \begin{itemize}
