@@ -94,3 +94,20 @@
 
 % ---------- Inline code shorthand ----------
 \newcommand{\code}[1]{\texttt{\small #1}}
+
+% ---------- Screenshot placeholder ----------
+% Marks exactly where to paste a real screenshot. Replace the tcolorbox line
+% with \includegraphics once the PNG sits in figures/.
+% Usage: \screenshotplaceholder[width-frac]{file-basename}{caption / what to capture}
+\newcommand{\screenshotplaceholder}[3][0.8]{%
+  \begin{figure}[htbp]\centering
+  \begin{tcolorbox}[enhanced,width=#1\linewidth,colback=gray!5,colframe=gray!50,
+      boxrule=0pt,arc=3pt,halign=center,valign=center,height=3.0cm,
+      borderline={0.8pt}{0pt}{gray!55,dashed}]
+    {\bfseries\color{gray!65}[\,Screenshot einf\"ugen\,]}\\[3pt]
+    {\ttfamily\scriptsize figures/#2.png}\\[2pt]
+    {\scriptsize ersetze diese Box durch
+      \texttt{\textbackslash includegraphics[width=#1\textbackslash textwidth]\{#2\}}}
+  \end{tcolorbox}
+  \caption{#3}\label{fig:#2}
+  \end{figure}}

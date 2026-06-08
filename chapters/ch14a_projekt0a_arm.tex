@@ -1,0 +1,856 @@
+% =============================================================
+%  ch14a_projekt0a_arm.tex  --  Projekt 0.A: Planarer 2-Gelenk-Arm
+% =============================================================
+
+\chapter{Projekt 0.A -- Planarer 2-Gelenk-Arm: Nodes, Topics, Services, Actions, IK}
+\label{ch:projekt0a}
+
+\textbf{Ziel:} ein erstes, vollständig selbst implementiertes ROS\,2-System, das
+alle Grundbausteine berührt -- \textbf{Nodes}, \textbf{Topics},
+\textbf{Services}, \textbf{Actions}, \textbf{URDF} und \textbf{inverse Kinematik}
+-- und das wir in \textbf{RViz} visualisieren und in \textbf{Gazebo Harmonic}
+simulieren. Wir übernehmen nur die \emph{Geometrie} eines bekannten
+Lernroboters (den planaren 2-Gelenk-Arm im Stil des ``RRBot'' aus
+\code{ros2\_control\_demos}) und schreiben die gesamte Logik selbst. Die
+Sim-Real-Architektur aus Kapitel~\ref{ch:simreal} gilt unverändert.
+
+\begin{infobox}[title=Warum gerade dieser Arm?]
+Der Arm besteht aus zwei Drehgelenken (\emph{revolute}) und zwei Stäben und
+bewegt sich in einer Ebene. Seine Geometrie ist trivial -- zwei Zylinder, ganz
+ohne CAD-Mesh -- aber er deckt alle Lernziele ab. Wichtig: die \textbf{inverse
+Kinematik eines 2-Glieder-Arms ist von Hand nachprüfbar} (es gibt sogar eine
+geschlossene Lösung über den Kosinussatz). Wir nutzen den Arm aber, um das
+\emph{allgemeine} IK-Verfahren zu üben, das auch bei komplexen Robotern greift:
+Vorwärtskinematik aus \textbf{Denavit-Hartenberg}-Parametern plus
+\textbf{numerische} Lösung über die Jacobi-Matrix. Die geschlossene Lösung dient
+nur als Referenz zum Gegenprüfen. Vertiefung in Kapitel~\ref{ch:kinematik}.
+\end{infobox}
+
+\section{ROS\,2-Bausteine}
+\begin{longtable}{@{}p{2.6cm}p{12cm}@{}}
+\toprule
+\textbf{Typ} & \textbf{Konkret (selbst implementiert, sofern nicht anders vermerkt)} \\
+\midrule
+Nodes    & \code{arm\_commander} (Action-/Service-Client) $\cdot$
+           \code{reach\_action\_server} (IK + Bahnerzeugung) $\cdot$
+           \code{robot\_state\_publisher} (Standard) $\cdot$
+           \code{controller\_manager} + \code{joint\_trajectory\_controller} +
+           \code{joint\_state\_broadcaster} (Standard) $\cdot$
+           Hardware-Interface (Sim: \code{gz\_ros2\_control}) \\
+Topics   & \code{/joint\_states} $\cdot$ \code{/tf}, \code{/tf\_static} $\cdot$
+           \code{/robot\_description} $\cdot$
+           \code{/arm\_controller/joint\_trajectory} \\
+Services & \code{/arm/set\_named\_pose} (eigener \code{srv}: home/extended/folded) $\cdot$
+           \code{/controller\_manager/switch\_controller} (Standard) \\
+Actions  & \code{/arm/reach\_point} (eigene \code{action}: Ziel $x,y$;
+           Feedback: Restdistanz; Result: Erfolg) $\cdot$ intern
+           \code{control\_msgs/FollowJointTrajectory} \\
+Parameter & Gliedlängen $l_1,l_2$ $\cdot$ Gelenklimits $\cdot$ benannte Posen \\
+\bottomrule
+\end{longtable}
+
+\section{rqt\_graph (Zielbild)}
+\begin{center}
+\begin{tikzpicture}[node distance=6mm and 14mm]
+\node[node] (cmd) {/arm\_commander};
+\node[node,right=of cmd] (ras) {/reach\_action\_\\server\\\scriptsize (IK)};
+\node[node,right=of ras] (jtc) {/joint\_trajectory\_\\controller};
+\node[node,right=of jtc] (hw) {/gz\_ros2\_control\\\scriptsize (Sim-Hardware)};
+\node[topic,below=10mm of jtc] (js) {/joint\_states};
+\node[node,below=6mm of cmd] (rviz) {/rviz2};
+\draw[flow] (cmd) -- node[topic,fill=white,inner sep=1pt]{\scriptsize reach\_point} (ras);
+\draw[flow] (ras) -- node[topic,fill=white,inner sep=1pt]{\scriptsize traj goal} (jtc);
+\draw[flow] (jtc) -- node[topic,fill=white,inner sep=1pt]{\scriptsize commands} (hw);
+\draw[flow] (hw) |- (js);
+\draw[flow] (js) -| (jtc);
+\draw[flow] (js) -| (rviz);
+\draw[flow,dashed,accent2] (ras) to[bend left=22]
+  node[above,font=\scriptsize\itshape]{feedback} (cmd);
+\end{tikzpicture}
+\captionof{figure}{Projekt~0.A: Der Befehlsknoten schickt ein kartesisches Ziel
+als Action-Goal; der Action-Server rechnet die IK, erzeugt eine Trajektorie und
+übergibt sie dem Controller. \code{/joint\_states} schließt die Schleife und
+speist RViz.}
+\end{center}
+
+\screenshotplaceholder{p0a-rqtgraph}{Tatsächlicher \code{rqt\_graph} des
+laufenden Systems (\code{rqt\_graph} bzw.\ \code{ros2 run rqt\_graph
+rqt\_graph}). Hier sieht man, ob alle Knoten und Topics wie geplant verbunden
+sind -- das beste Werkzeug zur Fehlersuche in der Architektur.}
+
+\section{Schritt für Schritt}
+
+\subsection{Schritt 1 -- Pakete anlegen und die Struktur verstehen}
+Die Projektlogik kommt in ein Python-Paket, die eigenen Schnittstellen
+(\code{srv}/\code{action}) in ein separates \code{ament\_cmake}-Paket -- nur dort
+generiert ROS\,2 aus \code{.srv}/\code{.action} echte Nachrichtentypen.
+\begin{lstlisting}[style=bash,caption={Pakete anlegen (im Workspace-\code{src})}]
+cd ~/ros2_ws/src
+ros2 pkg create --build-type ament_python p0a_arm \
+  --license Apache-2.0 \
+  --dependencies rclpy sensor_msgs trajectory_msgs control_msgs
+
+ros2 pkg create --build-type ament_cmake p0a_arm_interfaces \
+  --license Apache-2.0 --dependencies rosidl_default_generators
+
+mkdir -p p0a_arm/{urdf,config,launch}  p0a_arm_interfaces/{srv,action}
+\end{lstlisting}
+
+\paragraph{Was die Optionen bedeuten.}
+\begin{itemize}
+\item \code{--build-type ament\_python} -- das Paket wird über \code{setup.py}
+  gebaut, die Knoten sind Python-Skripte. Alternative \code{ament\_cmake}
+  (C++ oder Interface-Generierung).
+\item \code{--dependencies \ldots} -- trägt die genannten Pakete als
+  \code{<depend>} in die \code{package.xml} ein. \code{rclpy} ist die
+  Python-Client-Bibliothek von ROS\,2 (Knoten, Publisher, Timer \ldots), dazu
+  die verwendeten Nachrichtenpakete. \emph{Deklaration}, keine Installation.
+\item \code{--license Apache-2.0} -- vermeidet die TODO-Warnung und schreibt
+  eine gültige Lizenz in \code{package.xml}.
+\end{itemize}
+
+\paragraph{Zielstruktur des Python-Pakets.}
+\begin{lstlisting}[style=bash,caption={Verzeichnisbaum von \code{p0a\_arm} (Endstand Projekt 0.A)}]
+p0a_arm/
+|- package.xml          # Metadaten + Abhaengigkeiten (<depend>)
+|- setup.py             # Build/Install: Knoten (entry_points) + Daten (data_files)
+|- setup.cfg            # Ablageort der ausfuehrbaren Skripte
+|- resource/p0a_arm     # Marker fuer den ament-Index
+|- p0a_arm/             # Python-Modul (gleicher Name) -> hier die Knoten
+|  |- __init__.py
+|  |- arm_commander.py
+|  |- reach_action_server.py
+|  `- ik.py
+|- urdf/    arm.urdf.xacro
+|- config/  controllers.yaml  arm.rviz
+`- launch/  display.launch.py  gazebo.launch.py
+\end{lstlisting}
+\noindent Die \code{package.xml} ist die Visitenkarte des Pakets: Name, Version,
+Lizenz und die \code{<depend>}-Zeilen, die \code{rosdep} und \code{colcon}
+auswerten. Die \code{setup.py} bestimmt, \emph{was installiert wird} -- dazu in
+Schritt~3 mehr: \code{urdf/}, \code{launch/} und \code{config/} müssen dort
+explizit eingetragen werden, sonst landen sie nicht im \code{install/}-Baum.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 1 (\# neu / \# angepasst)}]
+src/
+|- p0a_arm/             # neu (ament_python: rclpy-Knoten)
+`- p0a_arm_interfaces/  # neu (ament_cmake: srv/action)
+\end{lstlisting}
+
+\subsection{Schritt 2 -- Geometrie als URDF/Xacro}
+Wir schreiben das Modell selbst -- das \emph{ist} das URDF-Lernziel. Datei:
+\code{p0a\_arm/urdf/arm.urdf.xacro}. Beide Gelenke drehen um $z$, die Glieder
+liegen entlang $+x$ ($l_1=1{,}0$, $l_2=0{,}8$, passend zur DH-Tabelle aus
+Schritt~7).
+
+\paragraph{Aufbau einer URDF.} Eine URDF beschreibt einen Baum aus
+\textbf{Links} (starre Körper) und \textbf{Joints} (Verbindungen):
+\begin{itemize}
+\item \textbf{\code{<robot name=\ldots>}} -- Wurzelelement, allgemeine Metadaten.
+  Der Robotername ist frei; entscheidend sind die später referenzierten
+  \emph{Link-} und \emph{Joint-Namen}.
+\item \textbf{\code{<joint>}} -- verbindet einen \code{<parent>}- mit einem
+  \code{<child>}-Link, mit \code{<origin>} (Lage relativ zum Parent),
+  \code{<axis>} (Achse) und \code{<limit>} (Grenzen). \code{type}:
+  \code{revolute} (begrenzt drehbar), \code{continuous}, \code{prismatic}
+  (schiebend), \code{fixed} (starr).
+\item \textbf{\code{<link>}} -- ein Körper mit \code{<visual>} (Darstellung),
+  \code{<collision>} (Kollisionskörper) und \code{<inertial>} (Masse +
+  Trägheitstensor; für Gazebo nötig, für RViz optional).
+\item \textbf{\code{<ros2\_control>}/\code{<gazebo>}} -- keine Geometrie, sondern
+  die Anbindung an die Simulation (Schritt~4).
+\end{itemize}
+
+\begin{infobox}[title=Müssen Joints und Links in Reihenfolge stehen?]
+\textbf{Nein.} URDF wird \emph{nicht} als Reihenfolge von oben nach unten
+gelesen. Der kinematische Baum entsteht allein aus den
+\code{<parent>}/\code{<child>}-Verweisen der Joints. Die Abfolge \code{joint1},
+\code{link1}, \code{joint2}, \code{link2} \ldots\ ist nur \emph{lesbare}
+Konvention -- man dürfte alle Links zuerst und dann alle Joints notieren. Pflicht
+ist nur: genau \emph{ein} Wurzel-Link (ohne Parent), ein zusammenhängender,
+zyklenfreier Baum, und jeder referenzierte Link existiert.
+\end{infobox}
+
+\noindent Die vollständige, lauffähige Datei (Glieder als Boxen, mit
+Inertials und Collisions):
+\begin{lstlisting}[style=xml,caption={\code{urdf/arm.urdf.xacro} -- vollständig}]
+<?xml version="1.0"?>
+<!-- Planarer 2-Gelenk-Arm: Gelenke um z, Glieder entlang +x. l1=1.0, l2=0.8 -->
+<robot name="rrarm">
+
+  <link name="world"/>
+  <joint name="fix" type="fixed">
+    <parent link="world"/><child link="base"/>
+  </joint>
+
+  <link name="base">
+    <visual><origin xyz="0 0 0.05"/>
+      <geometry><cylinder length="0.1" radius="0.05"/></geometry>
+      <material name="grey"><color rgba="0.5 0.5 0.5 1"/></material></visual>
+    <collision><origin xyz="0 0 0.05"/>
+      <geometry><cylinder length="0.1" radius="0.05"/></geometry></collision>
+    <inertial><mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/></inertial>
+  </link>
+
+  <joint name="joint1" type="revolute">
+    <parent link="base"/><child link="link1"/>
+    <origin xyz="0 0 0.1"/><axis xyz="0 0 1"/>
+    <limit lower="-3.14" upper="3.14" effort="50" velocity="2.0"/>
+  </joint>
+  <link name="link1">
+    <visual><origin xyz="0.5 0 0"/>
+      <geometry><box size="1.0 0.06 0.06"/></geometry>
+      <material name="blue"><color rgba="0.2 0.4 0.8 1"/></material></visual>
+    <collision><origin xyz="0.5 0 0"/>
+      <geometry><box size="1.0 0.06 0.06"/></geometry></collision>
+    <inertial><origin xyz="0.5 0 0"/><mass value="1.0"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.084" iyz="0" izz="0.084"/></inertial>
+  </link>
+
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/><child link="link2"/>
+    <origin xyz="1.0 0 0"/><axis xyz="0 0 1"/>
+    <limit lower="-3.14" upper="3.14" effort="50" velocity="2.0"/>
+  </joint>
+  <link name="link2">
+    <visual><origin xyz="0.4 0 0"/>
+      <geometry><box size="0.8 0.05 0.05"/></geometry>
+      <material name="orange"><color rgba="0.9 0.5 0.1 1"/></material></visual>
+    <collision><origin xyz="0.4 0 0"/>
+      <geometry><box size="0.8 0.05 0.05"/></geometry></collision>
+    <inertial><origin xyz="0.4 0 0"/><mass value="0.8"/>
+      <inertia ixx="0.0008" ixy="0" ixz="0" iyy="0.043" iyz="0" izz="0.043"/></inertial>
+  </link>
+
+  <!-- Anbindung an die Simulation (Schritt 4) -->
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware><plugin>gz_ros2_control/GazeboSimSystem</plugin></hardware>
+    <joint name="joint1"><command_interface name="position"/>
+      <state_interface name="position"/><state_interface name="velocity"/></joint>
+    <joint name="joint2"><command_interface name="position"/>
+      <state_interface name="position"/><state_interface name="velocity"/></joint>
+  </ros2_control>
+</robot>
+\end{lstlisting}
+
+\begin{warnbox}[title=Der \code{<gazebo>}-Plugin-Block kommt erst in Schritt 4]
+Der Block, der die Controller lädt, verweist mit \code{\$(find p0a\_arm)} auf das
+\emph{installierte} Paket:
+\begin{lstlisting}[style=xml]
+<gazebo>
+  <plugin filename="gz_ros2_control-system"
+          name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+    <parameters>$(find p0a_arm)/config/controllers.yaml</parameters>
+  </plugin>
+</gazebo>
+\end{lstlisting}
+\code{\$(find \ldots)} lässt sich erst auflösen, \emph{nachdem} das Paket gebaut
+und gesourct ist. Schon für den RViz-Test (Schritt~3) hineingenommen, scheitert
+\code{xacro} mit ``package not found''. Daher erst in Schritt~4 ergänzen.
+\end{warnbox}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 2 (\# neu / \# angepasst)}]
+src/p0a_arm/
+`- urdf/arm.urdf.xacro  # neu (Robotermodell: links, joints, ros2_control)
+\end{lstlisting}
+
+\subsection{Schritt 3 -- In RViz darstellen (über eine Launch-Datei)}
+Den großen URDF-String \emph{nicht} als Kommandozeilen-Parameter übergeben --
+\code{rcl} kann das mehrzeilige XML nicht parsen (\code{Couldn't parse parameter
+override rule}). Der saubere Weg ist eine \textbf{Launch-Datei}, die
+\code{robot\_state\_publisher} den \code{robot\_description}-Parameter als echten
+Wert übergibt.
+
+\paragraph{Ressourcen installierbar machen.} Damit \code{ros2 launch} die Dateien
+findet, müssen \code{urdf/}, \code{launch/} und \code{config/} in der
+\code{setup.py} als \code{data\_files} eingetragen werden:
+\begin{lstlisting}[style=py,caption={Ergänzung in \code{setup.py}}]
+import os
+from glob import glob
+# ... in data_files=[ ... ] zusaetzlich:
+(os.path.join('share', package_name, 'urdf'),   glob('urdf/*')),
+(os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+(os.path.join('share', package_name, 'config'), glob('config/*')),
+\end{lstlisting}
+
+\begin{lstlisting}[style=py,caption={\code{launch/display.launch.py}}]
+from launch import LaunchDescription
+from launch.substitutions import Command, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+from launch_ros.parameter_descriptions import ParameterValue
+
+def generate_launch_description():
+    pkg = FindPackageShare('p0a_arm')
+    xacro_file = PathJoinSubstitution([pkg, 'urdf', 'arm.urdf.xacro'])
+    rviz_config = PathJoinSubstitution([pkg, 'config', 'arm.rviz'])
+    robot_description = ParameterValue(Command(['xacro ', xacro_file]),
+                                       value_type=str)
+    return LaunchDescription([
+        Node(package='robot_state_publisher', executable='robot_state_publisher',
+             parameters=[{'robot_description': robot_description}]),
+        Node(package='joint_state_publisher_gui',
+             executable='joint_state_publisher_gui'),
+        Node(package='rviz2', executable='rviz2',
+             arguments=['-d', rviz_config]),
+    ])
+\end{lstlisting}
+
+\paragraph{RViz-Ansicht vorkonfigurieren (automatisch).} Frisch gestartet steht
+RViz auf \emph{Fixed Frame} \code{map} (Fehler ``Frame [map] does not exist'')
+und zeigt kein Modell -- es ist noch kein RobotModel-Display angelegt. Damit
+Modell und TF-Achsen sofort erscheinen, legt die mitgelieferte
+\code{config/arm.rviz} drei Dinge fest:
+\begin{lstlisting}[style=yaml,caption={\code{config/arm.rviz} -- die entscheidenden Einträge}]
+Visualization Manager:
+  Global Options:
+    Fixed Frame: world             # statt "map" -> kein Frame-Fehler mehr
+  Displays:
+    - Class: rviz_default_plugins/RobotModel
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Durability Policy: Transient Local   # WICHTIG: rsp latcht die Beschreibung
+    - Class: rviz_default_plugins/TF           # zeigt die Gelenk-Frames
+\end{lstlisting}
+
+\paragraph{Der manuelle Weg (ohne Config-Datei).} In \emph{Global Options} das
+\emph{Fixed Frame} auf \code{world} setzen. Dann unten links \emph{Add}
+$\rightarrow$ \code{RobotModel} $\rightarrow$ \emph{OK} und in dessen
+Eigenschaften \emph{Description Topic} auf \code{/robot\_description} stellen --
+der Arm erscheint. Optional \emph{Add} $\rightarrow$ \code{TF} für die
+Gelenk-Frames. Zum Schluss \emph{File\,$\rightarrow$\,Save Config As} nach
+\code{config/arm.rviz}, damit der \code{-d}-Start sie künftig automatisch lädt.
+\textbf{Häufige Falle:} ohne \emph{Transient Local} sieht das RobotModel die
+einmalig gelatchte Beschreibung nicht -- das Modell bleibt unsichtbar.
+
+\begin{lstlisting}[style=bash,caption={Bauen, sourcen, starten}]
+cd ~/ros2_ws
+colcon build --packages-select p0a_arm
+source install/setup.bash          # neue Terminals tun das via .bashrc selbst
+ros2 launch p0a_arm display.launch.py   # laedt arm.rviz automatisch (-d)
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 3 (\# neu / \# angepasst)}]
+src/p0a_arm/
+|- setup.py                   # angepasst: data_files (urdf, launch, config)
+|- launch/display.launch.py   # neu
+`- config/arm.rviz            # neu
+\end{lstlisting}
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.85\textwidth]{{project_0.A/step3_rviz_with_state_publisher}.png}
+  \caption{RViz mit dem Arm-Modell und den TF-Achsen. Über den
+  \code{joint\_state\_publisher\_gui} lassen sich die Gelenke bewegen -- dreht
+  sich der Arm plausibel, sind URDF und TF korrekt.}
+  \label{fig:p0a-rviz-model}
+\end{figure}
+
+\subsection{Schritt 4 -- In Gazebo simulieren (\code{ros2\_control})}
+Jetzt mit Physik. \textbf{Zuerst} den in Schritt~2 gezeigten
+\code{<gazebo>}-Block in \code{arm.urdf.xacro} aktivieren (Auskommentierung
+aufheben): Da das Paket nun gebaut und gesourct ist, löst \code{\$(find
+p0a\_arm)} auf den installierten \code{config}-Pfad auf. Die Controller
+beschreibt eine YAML, die der vom Plugin gestartete \code{controller\_manager}
+lädt:
+\begin{lstlisting}[style=yaml,caption={\code{config/controllers.yaml}}]
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    arm_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+arm_controller:
+  ros__parameters:
+    joints: [joint1, joint2]
+    command_interfaces: [position]
+    state_interfaces: [position, velocity]
+\end{lstlisting}
+\noindent Nach jeder Änderung an \code{urdf/} oder \code{config/} neu bauen und
+sourcen, sonst läuft die alte installierte Fassung:
+\code{colcon build --packages-select p0a\_arm \&\& source install/setup.bash}.
+
+\paragraph{Empfohlen: alles in einer Launch-Datei.} Vier Knoten von Hand in
+mehreren Terminals zu starten ist fehleranfällig (Gazebo blockiert sein Terminal,
+\code{robot\_state\_publisher} muss laufen, die Controller dürfen erst nach dem
+Spawn kommen). Eine Launch-Datei erledigt das in \emph{einem} Befehl und
+sequenziert die Schritte über Event-Handler:
+\begin{lstlisting}[style=py,caption={\code{launch/gazebo.launch.py}}]
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import Command, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+from launch_ros.parameter_descriptions import ParameterValue
+
+def generate_launch_description():
+    pkg = FindPackageShare('p0a_arm')
+    ros_gz_sim = FindPackageShare('ros_gz_sim')
+    xacro_file = PathJoinSubstitution([pkg, 'urdf', 'arm.urdf.xacro'])
+    robot_description = ParameterValue(Command(['xacro ', xacro_file]),
+                                       value_type=str)
+    rsp = Node(package='robot_state_publisher', executable='robot_state_publisher',
+               parameters=[{'robot_description': robot_description}])
+    gz = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([ros_gz_sim, 'launch', 'gz_sim.launch.py'])),
+        launch_arguments={'gz_args': '-r empty.sdf'}.items())   # -r: sofort laufen
+    spawn = Node(package='ros_gz_sim', executable='create',
+                 arguments=['-topic', 'robot_description', '-name', 'rrarm'])
+    jsb = Node(package='controller_manager', executable='spawner',
+               arguments=['joint_state_broadcaster'])
+    arm = Node(package='controller_manager', executable='spawner',
+               arguments=['arm_controller'])
+    return LaunchDescription([
+        rsp, gz, spawn,
+        RegisterEventHandler(OnProcessExit(target_action=spawn, on_exit=[jsb])),
+        RegisterEventHandler(OnProcessExit(target_action=jsb, on_exit=[arm])),
+    ])
+\end{lstlisting}
+
+\noindent Damit genügen \textbf{zwei Terminals}: eines startet alles, das zweite
+prüft die Controller und schickt eine Trajektorie.
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- bauen, sourcen, alles starten}]
+cd ~/ros2_ws
+colcon build --packages-select p0a_arm
+source install/setup.bash
+ros2 launch p0a_arm gazebo.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Controller prüfen und Arm kommandieren}]
+source ~/ros2_ws/install/setup.bash
+ros2 control list_controllers          # beide sollten "active" sein
+ros2 topic pub --once /arm_controller/joint_trajectory \
+  trajectory_msgs/msg/JointTrajectory \
+  '{joint_names: [joint1, joint2],
+    points: [{positions: [0.8, -0.6], time_from_start: {sec: 2}}]}'
+\end{lstlisting}
+
+\paragraph{Was dabei unter der Haube passiert.} Die Launch-Datei ersetzt diese
+vier Einzelschritte -- nützlich zum Verständnis, von Hand aber nicht nötig:
+\begin{lstlisting}[style=bash,caption={Äquivalente Einzelbefehle}]
+ros2 launch ros_gz_sim gz_sim.launch.py gz_args:="-r empty.sdf"
+ros2 run ros_gz_sim create -topic robot_description -name rrarm
+ros2 control load_controller --set-state active joint_state_broadcaster
+ros2 control load_controller --set-state active arm_controller
+\end{lstlisting}
+\paragraph{Was die Befehle und Flags tun.}
+\begin{itemize}
+\item \code{ros\_gz\_sim gz\_sim.launch.py gz\_args:="empty.sdf"} -- startet
+  Gazebo Harmonic mit einer leeren Welt.
+\item \code{ros\_gz\_sim create -topic robot\_description} -- spawnt das Modell
+  aus dem (vom \code{robot\_state\_publisher}) veröffentlichten
+  \code{robot\_description}-Topic in die laufende Welt.
+\item \code{ros2 control load\_controller --set-state active <name>} -- lädt
+  einen Controller \emph{und} schaltet ihn in einem Schritt aktiv. Ohne
+  \code{--set-state active} bliebe er nur konfiguriert (inaktiv) und würde keine
+  Befehle umsetzen.
+\item \code{controller\_manager spawner <name>} -- die Launch-Variante davon:
+  lädt, konfiguriert und aktiviert einen Controller in einem Schritt.
+\item \textbf{Reihenfolge:} erst \code{joint\_state\_broadcaster} (publiziert
+  \code{/joint\_states}), dann \code{arm\_controller} (nimmt Trajektorien an).
+\end{itemize}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 4 (\# neu / \# angepasst)}]
+src/p0a_arm/
+|- urdf/arm.urdf.xacro       # angepasst: <gazebo>-Plugin-Block aktiviert
+|- config/controllers.yaml   # neu
+`- launch/gazebo.launch.py   # neu (Gazebo + rsp + spawn + Controller)
+\end{lstlisting}
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.85\textwidth]{{project_0.A/step4_gazebo}.png}
+  \caption{Der Arm in Gazebo Harmonic. Hier wirkt Schwerkraft: ohne aktiven
+  Controller sinkt der Arm -- mit aktivem \code{arm\_controller} hält er die per
+  Trajektorie kommandierte Stellung.}
+  \label{fig:p0a-gazebo}
+\end{figure}
+
+\subsection{Schritt 5 -- Topics: kommandieren und auslesen}
+Erst direkt von der Kommandozeile, dann aus einem eigenen Knoten:
+\begin{lstlisting}[style=bash,caption={Gelenke per Topic ansprechen}]
+ros2 topic echo /joint_states                       # Ist-Zustand mitlesen
+ros2 topic pub --once /arm_controller/joint_trajectory \
+  trajectory_msgs/msg/JointTrajectory \
+  '{joint_names: [joint1, joint2],
+    points: [{positions: [0.5, -0.8], time_from_start: {sec: 2}}]}'
+\end{lstlisting}
+\noindent Als Knoten verpackt fährt \code{arm\_commander} abwechselnd zwei Posen
+an, sodass eine sichtbare Bewegung entsteht.
+\begin{lstlisting}[style=py,caption={\code{p0a\_arm/arm\_commander.py}}]
+import rclpy
+from rclpy.node import Node
+from builtin_interfaces.msg import Duration
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+
+class ArmCommander(Node):
+    def __init__(self):
+        super().__init__('arm_commander')
+        self.pub = self.create_publisher(
+            JointTrajectory, '/arm_controller/joint_trajectory', 10)
+        self.poses = [[0.8, -0.6], [-0.8, 0.6]]    # zwei Zielposen
+        self.idx = 0
+        self.create_timer(3.0, self.tick)           # alle 3 s neues Ziel
+
+    def tick(self):
+        target = self.poses[self.idx]
+        self.idx = (self.idx + 1) % len(self.poses)
+        msg = JointTrajectory()
+        msg.joint_names = ['joint1', 'joint2']
+        p = JointTrajectoryPoint()
+        p.positions = target
+        p.time_from_start = Duration(sec=2)         # 2 s bis zum Ziel
+        msg.points = [p]
+        self.pub.publish(msg)
+
+def main():
+    rclpy.init()
+    rclpy.spin(ArmCommander())
+    rclpy.shutdown()
+\end{lstlisting}
+\noindent Den Knoten in \code{setup.py} als Skript registrieren (sonst kennt
+\code{ros2 run} ihn nicht):
+\begin{lstlisting}[style=py,caption={\code{p0a\_arm/setup.py} -- \code{entry\_points}}]
+entry_points={
+    'console_scripts': [
+        'arm_commander = p0a_arm.arm_commander:main',
+    ],
+},
+\end{lstlisting}
+
+\paragraph{Ausführen (drei Terminals).} Damit sich etwas bewegt, muss der
+Gazebo-Stack aus Schritt~4 laufen -- er stellt den \code{arm\_controller}, der
+die Trajektorien ausführt.
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- Gazebo-Stack (wie Schritt 4)}]
+cd ~/ros2_ws
+colcon build --packages-select p0a_arm
+source install/setup.bash
+ros2 launch p0a_arm gazebo.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- den Knoten starten}]
+source ~/ros2_ws/install/setup.bash
+ros2 run p0a_arm arm_commander
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 3 (optional) -- RViz eigenständig}]
+source ~/ros2_ws/install/setup.bash
+rviz2 -d "$(ros2 pkg prefix --share p0a_arm)/config/arm.rviz"
+\end{lstlisting}
+
+\begin{warnbox}[title={RViz neben Gazebo -- nicht über display.launch.py}]
+Der Arm bewegt sich bereits sichtbar in \textbf{Gazebo}. Will man ihn
+\emph{zusätzlich} in RViz sehen, RViz \textbf{eigenständig} starten (Terminal 3)
+-- \emph{nicht} über \code{display.launch.py}: dessen
+\code{joint\_state\_publisher\_gui} würde mit dem Gazebo-%
+\code{joint\_state\_broadcaster} um \code{/joint\_states} konkurrieren. RViz
+zeigt die Bewegung dann über \code{/joint\_states}\,$\rightarrow$\,TF.
+\end{warnbox}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 5 (\# neu / \# angepasst)}]
+src/p0a_arm/
+|- setup.py                  # angepasst: entry_points -> arm_commander
+`- p0a_arm/arm_commander.py  # neu
+\end{lstlisting}
+
+\subsection{Schritt 6 -- Service: in eine benannte Pose fahren}
+Ein Service ist die richtige Wahl für einen kurzen Befehl mit klarer Antwort.
+\begin{lstlisting}[style=bash,caption={\code{srv/SetNamedPose.srv}}]
+string name        # "home" | "extended" | "folded"
+---
+bool ok
+string message
+\end{lstlisting}
+\paragraph{Interface bauen.} Eigene \code{srv}-Typen entstehen nur in einem
+\code{ament\_cmake}-Paket. In \code{p0a\_arm\_interfaces} zwei Dinge ergänzen --
+die Generierung in \code{CMakeLists.txt} und die Laufzeit-Abhängigkeiten in
+\code{package.xml}:
+\begin{lstlisting}[style=bash,caption={\code{p0a\_arm\_interfaces/CMakeLists.txt} (Ergänzung)}]
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/SetNamedPose.srv"
+)
+ament_export_dependencies(rosidl_default_runtime)
+\end{lstlisting}
+\begin{lstlisting}[style=xml,caption={\code{p0a\_arm\_interfaces/package.xml} (Ergänzung)}]
+<exec_depend>rosidl_default_runtime</exec_depend>
+<!-- am Ende, direkt vor <export>: -->
+<member_of_group>rosidl_interface_packages</member_of_group>
+\end{lstlisting}
+
+\paragraph{Server-Knoten.} Er bildet den Namen auf Gelenkwinkel ab, sendet die
+Trajektorie (wie in Schritt~5) und meldet Erfolg in der Antwort.
+\begin{lstlisting}[style=py,caption={\code{p0a\_arm/named\_pose\_server.py}}]
+import rclpy
+from rclpy.node import Node
+from builtin_interfaces.msg import Duration
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from p0a_arm_interfaces.srv import SetNamedPose
+
+class NamedPoseServer(Node):
+    NAMED_POSES = {
+        'extended': [0.0, 0.0],    # voll gestreckt
+        'home':     [1.57, 0.0],   # 90-Grad-Ruhestellung
+        'folded':   [0.0, 2.8],    # link2 zurueckgeklappt
+    }
+    def __init__(self):
+        super().__init__('named_pose_server')
+        self.pub = self.create_publisher(
+            JointTrajectory, '/arm_controller/joint_trajectory', 10)
+        self.create_service(SetNamedPose, '/arm/set_named_pose', self.on_request)
+
+    def on_request(self, request, response):
+        target = self.NAMED_POSES.get(request.name)
+        if target is None:
+            response.ok = False
+            response.message = f"unbekannte Pose '{request.name}'"
+            return response
+        msg = JointTrajectory()
+        msg.joint_names = ['joint1', 'joint2']
+        p = JointTrajectoryPoint()
+        p.positions = target
+        p.time_from_start = Duration(sec=2)
+        msg.points = [p]
+        self.pub.publish(msg)
+        response.ok = True
+        response.message = f"fahre zu '{request.name}' -> {target}"
+        return response
+
+def main():
+    rclpy.init()
+    rclpy.spin(NamedPoseServer())
+    rclpy.shutdown()
+\end{lstlisting}
+\begin{warnbox}[title={Callback nicht \code{handle} nennen}]
+Die Callback-Methode heißt bewusst \code{on\_request} und \emph{nicht}
+\code{handle}: \code{rclpy.node.Node} besitzt bereits eine Eigenschaft
+\code{handle} (den internen rcl-Knoten-Handle). Eine eigene Methode \code{handle}
+überschreibt sie, und schon \code{super().\_\_init\_\_()} scheitert mit
+\code{'method' object does not support the context manager protocol}. Gleiches
+gilt für andere Node-Member (\code{context}, \code{executor}, \ldots).
+\end{warnbox}
+\noindent Im \code{p0a\_arm}-Paket die Abhängigkeit (für den \code{import}) und
+den Einstiegspunkt eintragen:
+\begin{lstlisting}[style=xml,caption={\code{p0a\_arm/package.xml}}]
+<depend>p0a_arm_interfaces</depend>
+\end{lstlisting}
+\begin{lstlisting}[style=py,caption={\code{p0a\_arm/setup.py} -- \code{entry\_points}}]
+'named_pose_server = p0a_arm.named_pose_server:main',
+\end{lstlisting}
+
+\paragraph{Bauen und ausführen.} Das Interface-Paket muss \emph{vor}
+\code{p0a\_arm} gebaut werden; \code{colcon} ordnet das anhand der
+\code{<depend>}-Zeile automatisch.
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- bauen + Gazebo-Stack}]
+cd ~/ros2_ws
+colcon build --packages-select p0a_arm_interfaces p0a_arm
+source install/setup.bash
+ros2 launch p0a_arm gazebo.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Server bereitstellen}]
+source ~/ros2_ws/install/setup.bash
+ros2 run p0a_arm named_pose_server
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 3 -- Service aufrufen}]
+source ~/ros2_ws/install/setup.bash
+ros2 service call /arm/set_named_pose \
+  p0a_arm_interfaces/srv/SetNamedPose "{name: folded}"
+ros2 service call /arm/set_named_pose \
+  p0a_arm_interfaces/srv/SetNamedPose "{name: extended}"
+ros2 service call /arm/set_named_pose \
+  p0a_arm_interfaces/srv/SetNamedPose "{name: home}"
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 6 (\# neu / \# angepasst)}]
+src/
+|- p0a_arm_interfaces/
+|  |- srv/SetNamedPose.srv  # neu
+|  |- CMakeLists.txt        # angepasst: rosidl_generate_interfaces(srv)
+|  `- package.xml           # angepasst: rosidl_default_runtime + member_of_group
+`- p0a_arm/
+   |- setup.py                     # angepasst: entry_points -> named_pose_server
+   |- package.xml                  # angepasst: <depend>p0a_arm_interfaces</depend>
+   `- p0a_arm/named_pose_server.py # neu
+\end{lstlisting}
+
+\subsection{Schritt 7 -- Inverse Kinematik allgemein: Denavit-Hartenberg + Jacobi}
+Für zwei Glieder gäbe es eine geschlossene Lösung (Kosinussatz) -- doch die
+\textbf{lässt sich nicht auf komplexe Roboter übertragen}. Reale Arme (6\,DoF und
+mehr) löst man \emph{numerisch}: Man beschreibt die Kinematik mit
+\textbf{Denavit-Hartenberg-Parametern} $(a_i,\alpha_i,d_i,\theta_i)$, bildet die
+Vorwärtskinematik als Produkt der Gliedtransformationen und iteriert die IK über
+die \textbf{Jacobi-Matrix}. Genau das tun auch \code{KDL} und \code{TRAC-IK}
+hinter MoveIt\,2. Wir schreiben es so, dass derselbe Code von 2 auf $N$ Gelenke
+skaliert.
+
+\paragraph{DH-Tabelle des Arms.}
+\begin{center}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+$i$ & $a_i$ & $\alpha_i$ & $d_i$ & $\theta_i$ \\
+\midrule
+1 & $l_1$ & $0$ & $0$ & $\theta_1$ (Gelenk) \\
+2 & $l_2$ & $0$ & $0$ & $\theta_2$ (Gelenk) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Vorwärtskinematik.} Jede Zeile liefert eine homogene Transformation;
+das Produkt ergibt die Endeffektor-Lage:
+\[
+A_i=\begin{bmatrix}
+c\theta_i & -s\theta_i c\alpha_i & s\theta_i s\alpha_i & a_i c\theta_i\\
+s\theta_i & c\theta_i c\alpha_i & -c\theta_i s\alpha_i & a_i s\theta_i\\
+0 & s\alpha_i & c\alpha_i & d_i\\
+0 & 0 & 0 & 1
+\end{bmatrix},\qquad
+T^0_n=\prod_{i=1}^{n} A_i,\qquad
+\mathbf{p}(\boldsymbol\theta)=T^0_n[\,0\!:\!3,\,3\,].
+\]
+
+\paragraph{Numerische IK (Damped Least Squares).} Mit dem Fehler
+$\mathbf{e}=\mathbf{p}^\ast-\mathbf{p}(\boldsymbol\theta)$ und der Jacobi-Matrix
+$J=\partial\mathbf{p}/\partial\boldsymbol\theta$ iteriert man bis
+$\lVert\mathbf{e}\rVert$ klein ist:
+\[
+\Delta\boldsymbol\theta = J^\top\!\big(JJ^\top+\lambda^2 I\big)^{-1}\mathbf{e},
+\qquad \boldsymbol\theta \leftarrow \boldsymbol\theta+\Delta\boldsymbol\theta .
+\]
+Die Dämpfung $\lambda$ hält die Lösung auch nahe Singularitäten stabil.
+\begin{lstlisting}[style=py,caption={\code{ik.py} -- DH-Vorwärtskinematik + numerische IK (skaliert auf N Gelenke)}]
+import numpy as np
+
+def dh(a, alpha, d, theta):
+    ct, st, ca, sa = np.cos(theta), np.sin(theta), np.cos(alpha), np.sin(alpha)
+    return np.array([[ct, -st*ca,  st*sa, a*ct],
+                     [st,  ct*ca, -ct*sa, a*st],
+                     [0,      sa,     ca,    d ],
+                     [0,       0,      0,    1 ]])
+
+# DH-Tabelle: (a, alpha, d) je Gelenk; theta ist die Gelenkvariable
+DH = [(1.0, 0.0, 0.0), (0.8, 0.0, 0.0)]      # l1, l2
+
+def fk(q):
+    T = np.eye(4)
+    for (a, al, d), th in zip(DH, q):
+        T = T @ dh(a, al, d, th)
+    return T[:3, 3]                            # Endeffektor-Position (x, y, z)
+
+def jacobian(q, eps=1e-6):                     # numerisch -> voellig allgemein
+    p0 = fk(q); J = np.zeros((3, len(q)))
+    for i in range(len(q)):
+        dq = np.array(q, float); dq[i] += eps
+        J[:, i] = (fk(dq) - p0) / eps
+    return J
+
+def ik_dls(target, q0, lam=0.1, iters=200, tol=1e-4):
+    q = np.array(q0, float)
+    for _ in range(iters):
+        e = np.asarray(target, float) - fk(q)
+        if np.linalg.norm(e) < tol:
+            break
+        J = jacobian(q)
+        q += J.T @ np.linalg.solve(J @ J.T + lam**2*np.eye(3), e)
+    return q, float(np.linalg.norm(e))         # Gelenkwinkel + Restfehler
+\end{lstlisting}
+
+\begin{warnbox}[title=Numerische IK in der Praxis]
+Anders als die geschlossene Lösung hängt die numerische IK vom \textbf{Startwert}
+ab (sinnvoll: der aktuelle Gelenkzustand aus \code{/joint\_states}), liefert
+\emph{eine} von mehreren möglichen Lösungen und muss \textbf{Gelenklimits}
+nachgelagert prüfen. Die Dämpfung $\lambda$ verhindert Ausreißer nahe
+Singularitäten -- beim planaren Arm etwa, dass die $z$-Richtung gar nicht
+erreichbar ist (Zielebene $z=0$). Die geschlossene 2-Glieder-Lösung eignet sich
+hervorragend als \textbf{Referenz}, um die numerische Implementierung
+gegenzuprüfen.
+\end{warnbox}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 7 (\# neu / \# angepasst)}]
+src/p0a_arm/
+`- p0a_arm/ik.py  # neu (DH-Vorwaertskinematik + numerische Jacobi-IK)
+\end{lstlisting}
+
+\subsection{Schritt 8 -- Action: kartesisches Ziel anfahren}
+Das Anfahren eines Punktes ist ein \emph{länger laufender} Auftrag mit
+Fortschritt -- also eine \textbf{Action}.
+\begin{lstlisting}[style=bash,caption={\code{action/ReachPoint.action}}]
+float64 x
+float64 y
+---
+bool success
+float64 final_error
+---
+float64 distance_to_goal
+\end{lstlisting}
+Der Action-Server rechnet mit \code{ik\_dls} die Zielwinkel (Startwert: der
+aktuelle Gelenkzustand aus \code{/joint\_states}), sendet die Trajektorie über
+den internen \code{FollowJointTrajectory}-Client und meldet laufend die
+Restdistanz als Feedback. Test von der Kommandozeile:
+\begin{lstlisting}[style=bash,caption={Action-Goal senden, Feedback live}]
+ros2 action send_goal /arm/reach_point \
+  p0a_arm_interfaces/action/ReachPoint "{x: 1.2, y: 0.6}" --feedback
+\end{lstlisting}
+\screenshotplaceholder{p0a-reach}{RViz (oder Gazebo) während der Arm das
+kartesische Ziel anfährt -- am besten mit eingeblendeter Endeffektor-Spur. Belegt
+die selbst implementierte IK plus den Action-Mechanismus mit Feedback.}
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 8 (\# neu / \# angepasst)}]
+src/
+|- p0a_arm_interfaces/
+|  |- action/ReachPoint.action  # neu
+|  `- CMakeLists.txt            # angepasst: rosidl_generate_interfaces(... action ...)
+`- p0a_arm/
+   |- setup.py                       # angepasst: entry_points -> reach_action_server
+   `- p0a_arm/reach_action_server.py # neu
+\end{lstlisting}
+
+\section{Häufige Fehler und Checkliste (Projekt 0.A)}
+\begin{warnbox}[title={Stolpersteine, die fast jeden treffen}]
+\begin{itemize}
+\item \textbf{Aus dem falschen Verzeichnis gestartet.} Pfade wie
+  \code{src/p0a\_arm/\ldots} gelten ab \code{\textasciitilde/ros2\_ws}, nicht ab
+  \code{\textasciitilde/ros2\_ws/src} -- sonst entsteht \code{src/src/\ldots}.
+\item \textbf{URDF per \code{-p} an der Kommandozeile.} Das mehrzeilige XML
+  bricht \code{rcl}; immer über die Launch-Datei übergeben.
+\item \textbf{\code{\$(find p0a\_arm)} vor dem Bauen.} Erst \code{colcon build}
+  \texttt{+} \code{source}, sonst ``package not found''.
+\item \textbf{\code{urdf/}/\code{launch/}/\code{config/} fehlen in
+  \code{setup.py}.} Dann liegen sie nicht im \code{install/}-Baum und
+  \code{ros2 launch} findet nichts -- \code{data\_files} ergänzen, neu bauen.
+\item \textbf{Terminal nicht neu gesourct.} Nach \code{apt install} oder
+  \code{colcon build} ein neues Terminal öffnen oder
+  \code{source \textasciitilde/.bashrc}.
+\item \textbf{\code{gz} / \code{joint\_state\_publisher\_gui} nicht gefunden.}
+  Paket installieren (Installationskapitel) \emph{und} ROS\,2 sourcen.
+\item \textbf{Custom \code{srv}/\code{action} im Python-Paket.} Nicht möglich --
+  Interfaces gehören ins \code{ament\_cmake}-Paket \code{p0a\_arm\_interfaces}.
+\item \textbf{Methode wie ein Node-Member benannt} (\code{handle}, \code{context}
+  \ldots). Überschreibt rclpy-Interna -- Callbacks neutral benennen
+  (\code{on\_request}).
+\item \textbf{Link ohne \code{<inertial>} in Gazebo.} RViz verzeiht es, Gazebo
+  lässt das Glied wegfallen oder wird instabil.
+\item \textbf{RViz zeigt nichts / ``Frame [map] does not exist''.} \emph{Fixed
+  Frame} auf \code{world} stellen und ein \code{RobotModel}-Display
+  (\code{/robot\_description}, QoS \emph{Transient Local}) hinzufügen -- oder die
+  fertige \code{config/arm.rviz} laden.
+\end{itemize}
+\end{warnbox}
+
+\begin{infobox}[title=Schnelle Prüfbefehle]
+\begin{lstlisting}[style=bash]
+xacro src/p0a_arm/urdf/arm.urdf.xacro > /tmp/arm.urdf   # parst die URDF?
+colcon build --packages-select p0a_arm                  # baut das Paket?
+ros2 pkg prefix p0a_arm                                  # wird es gefunden?
+ros2 node list ; ros2 topic list                         # laufen die Knoten?
+rqt_graph                                                # stimmt die Architektur?
+\end{lstlisting}
+\end{infobox}
+
+\section{Was du danach beherrschst}
+\begin{itemize}
+\item \textbf{URDF/TF:} ein Robotermodell von Hand schreiben, in RViz prüfen.
+\item \textbf{Topics:} Soll-/Ist-Größen publizieren und mitlesen.
+\item \textbf{Services:} kurze Befehle mit Antwort (benannte Posen).
+\item \textbf{Actions:} länger laufende Aufträge mit Feedback (Ziel anfahren).
+\item \textbf{IK:} das allgemeine Verfahren -- DH-Vorwärtskinematik plus
+  numerische Jacobi-IK (Damped Least Squares) -- selbst implementiert; direkt
+  übertragbar auf 6-DoF-Roboter.
+\item \textbf{ros2\_control + Gazebo:} dieselbe Controller-Schicht wie in den
+  vier Hauptprojekten (Kapitel~\ref{ch:simreal}).
+\end{itemize}
