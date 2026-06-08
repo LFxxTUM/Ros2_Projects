@@ -73,10 +73,52 @@ als Action-Goal; der Action-Server rechnet die IK, erzeugt eine Trajektorie und
 speist RViz.}
 \end{center}
 
-\screenshotplaceholder{p0a-rqtgraph}{Tatsächlicher \code{rqt\_graph} des
-laufenden Systems (\code{rqt\_graph} bzw.\ \code{ros2 run rqt\_graph
-rqt\_graph}). Hier sieht man, ob alle Knoten und Topics wie geplant verbunden
-sind -- das beste Werkzeug zur Fehlersuche in der Architektur.}
+\noindent Abbildung~\ref{fig:p0a-rqtgraph} zeigt den \emph{tatsächlichen}
+\code{rqt\_graph} (\code{ros2 run rqt\_graph rqt\_graph}), aufgenommen während
+\textbf{Schritt~8}: der \code{reach\_action\_server} läuft, der Gazebo-Stack aus
+\code{gazebo.launch.py} ist aktiv, und es wird ein Ziel über
+\code{/arm/reach\_point} gesendet.
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.95\textwidth]{{project_0.A/step8_rqtgraph}.png}
+  \caption{Tatsächlicher \code{rqt\_graph} aus Schritt~8 (laufender
+  \code{reach\_action\_server} + Gazebo-Stack, ein Ziel wird angefahren). Ovale
+  sind Knoten, Rechtecke Topics. Vgl.\ das idealisierte Zielbild oben -- hier
+  tritt anstelle des \code{arm\_commander} (Schritt~5) der
+  \code{reach\_action\_server} auf, dazu die sonst verborgene
+  Action-, Zeit- und TF-Infrastruktur.}
+  \label{fig:p0a-rqtgraph}
+\end{figure}
+
+\noindent\textbf{So liest sich der Graph:}
+\begin{itemize}
+\item \textbf{Action-Schnittstelle.} Der Goal-Sender -- ein transienter
+  \code{ros2 action send\_goal}-Knoten (\code{/\_ros2cli\_\ldots}) -- ist über die
+  versteckten Action-Topics \code{/arm/reach\_point/\_action/*} (Goal, Feedback,
+  Status, Result) mit \code{/reach\_action\_server} verbunden. Genau diese Kante
+  trägt das \code{--feedback} aus Schritt~8.
+\item \textbf{Trajektorie.} \code{/reach\_action\_server} publiziert auf
+  \code{/arm\_controller/joint\_trajectory}; Abonnent ist der
+  \code{/controller\_manager}, in dem \code{arm\_controller} und
+  \code{joint\_state\_broadcaster} laufen.
+\item \textbf{Rückkopplung.} Der \code{joint\_state\_broadcaster} veröffentlicht
+  \code{/joint\_states}. Daran hängen \emph{zwei} Knoten:
+  \code{/reach\_action\_server} (rechnet daraus per Vorwärtskinematik die
+  Restdistanz fürs Feedback) und \code{/robot\_state\_publisher}.
+\item \textbf{TF und Anzeige.} \code{/robot\_state\_publisher} wandelt
+  \code{/joint\_states} in \code{/tf} (+ \code{/tf\_static}) um -- die Quelle, aus
+  der \code{/rviz2} die Glieder positioniert.
+\item \textbf{Zeit.} Der \code{ros\_gz\_bridge}-Knoten (\code{parameter\_bridge})
+  speist \code{/clock} aus Gazebo; daran hängen alle \code{use\_sim\_time}-Knoten
+  -- fehlt diese Kante, steht das ganze System ohne Uhr da (vgl.\ Checkliste).
+\item \textbf{Simulation.} Der Gazebo-Knoten und das Topic
+  \code{/robot\_description} (von \code{robot\_state\_publisher}, beim Spawnen
+  gelesen) vervollständigen das Bild.
+\end{itemize}
+\noindent \textbf{Zum Gegenprüfen:} Verläuft eine erwartete Kante nicht wie hier
+beschrieben -- etwa \code{/joint\_states} erreicht den
+\code{robot\_state\_publisher} nicht --, ist genau das die Stelle für die
+Fehlersuche. \code{rqt\_graph} ist damit das schnellste Architektur-Diagnose\-%
+werkzeug.
 
 \section{Schritt für Schritt}
 
@@ -836,7 +878,10 @@ class ReachActionServer(Node):
 
     def current_q(self):
         return [self.joint_pos.get(j, 0.0) for j in JOINTS]
-
+\end{lstlisting}
+\noindent \ldots\ und die eigentliche Auftragsbearbeitung -- IK lösen,
+Trajektorie senden, Feedback liefern -- im \code{execute}-Callback:
+\begin{lstlisting}[style=py,caption={\code{reach\_action\_server.py} -- \code{execute} + \code{main}}]
     def execute(self, goal_handle):
         target = [goal_handle.request.x, goal_handle.request.y, 0.0]
         q_goal, _ = ik_dls(target, self.current_q())      # IK loesen
@@ -911,9 +956,14 @@ rviz2 -d "$(ros2 pkg prefix --share p0a_arm)/config/arm.rviz" \
 \noindent Alle drei Ziele liegen im erreichbaren Ring ($0{,}2 \le r \le 1{,}8$
 bei $l_1=1{,}0$, $l_2=0{,}8$); der Arm fährt sie nacheinander an, \code{--feedback}
 zeigt die schrumpfende Restdistanz, das Result \code{success} + \code{final\_error}.
-\screenshotplaceholder{p0a-reach}{RViz (oder Gazebo), während der Arm ein
-kartesisches Ziel anfährt -- am besten mit eingeblendeter Endeffektor-Spur. Belegt
-die selbst implementierte IK plus den Action-Mechanismus mit Feedback.}
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.92\textwidth]{{project_0.A/step8_ik}.png}
+  \caption{Projekt~0.A abgeschlossen: der Arm fährt das per Action gesendete
+  kartesische Ziel an (numerische IK). Daneben die Verläufe von Position
+  ($x,y,z$) und Orientierung (Roll/Pitch/Yaw) der beiden Glieder -- die Bewegung
+  ist in Gazebo, RViz und den Plots konsistent.}
+  \label{fig:p0a-reach}
+\end{figure}
 \begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 8 (\# neu / \# angepasst)}]
 src/
 |- p0a_arm_interfaces/
@@ -960,6 +1010,21 @@ src/
   fehlt sie, warnt der \code{controller\_manager} ``No clock received''; (2)~%
   \code{robot\_state\_publisher} \emph{und} RViz mit \code{use\_sim\_time:=true}
   starten. Nur beides zusammen liefert konsistente TF-Zeitstempel.
+\item \textbf{\code{--build -type} mit Leerzeichen.} Es heißt \code{--build-type}
+  (ein Token); sonst bricht \code{ros2 pkg create} mit ``expected one argument''.
+\item \textbf{xacro: ``module 'xml' has no attribute 'parsers'''.} Irreführende
+  Folgemeldung -- tatsächlich wurde die Datei \emph{nicht gefunden} (falscher Pfad
+  bzw.\ falsches Arbeitsverzeichnis). Pfad prüfen, nicht die xacro-Meldung jagen.
+\item \textbf{\code{member\_of\_group} an falscher Stelle.} In der
+  Interface-\code{package.xml} muss es \emph{nach} den \code{depend}-Zeilen,
+  direkt vor \code{<export>} stehen -- sonst Schema-Fehler.
+\item \textbf{Action ohne \code{action\_msgs}.} \code{rosidl\_generate\_interfaces}
+  für \code{.action} braucht \code{find\_package(action\_msgs)},
+  \code{DEPENDENCIES action\_msgs} und \code{<depend>action\_msgs</depend>}.
+\item \textbf{\code{display.launch.py} \emph{und} Gazebo gleichzeitig.} Der darin
+  enthaltene \code{joint\_state\_publisher\_gui} konkurriert mit dem Gazebo-%
+  \code{joint\_state\_broadcaster} um \code{/joint\_states} -- neben Gazebo RViz
+  eigenständig starten (\code{rviz2 -d \ldots}).
 \end{itemize}
 \end{warnbox}
 

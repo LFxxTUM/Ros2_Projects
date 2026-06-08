@@ -49,16 +49,26 @@
 
 % ---------- Code listings ----------
 \usepackage{listings}
+\usepackage{textcomp}   % gerade Anfuehrungszeichen (fuer upquote)
+\usepackage{etoolbox}   % Hooks, um Listings als Block zusammenzuhalten
+% Jedes Listing in eine minipage -> wird nicht ueber einen Seitenumbruch
+% zerrissen (Listings, die laenger als eine Seite sind, vorher aufteilen).
+\BeforeBeginEnvironment{lstlisting}{\par\noindent\begin{minipage}{\linewidth}}
+\AfterEndEnvironment{lstlisting}{\end{minipage}\par\medskip}
 \lstdefinestyle{base}{
   backgroundcolor=\color{codebg},
   basicstyle=\ttfamily\footnotesize,
   keywordstyle=\color{codekw}\bfseries,
   commentstyle=\color{codecom}\itshape,
   stringstyle=\color{codestr},
-  numbers=left, numberstyle=\tiny\color{gray}, numbersep=7pt,
+  numbers=none,           % keine Zeilennummern -> sauberes Kopieren aus dem PDF
   showstringspaces=false, breaklines=true, frame=single,
-  rulecolor=\color{rule}, framesep=5pt, xleftmargin=14pt,
+  rulecolor=\color{rule}, framesep=5pt, xleftmargin=6pt,
   tabsize=2, captionpos=b, aboveskip=8pt, belowskip=6pt,
+  % --- saubere Kopierbarkeit aus dem PDF ---
+  columns=fullflexible,   % keine eingefuegten Extra-Leerzeichen
+  keepspaces=true,        % Originalabstaende erhalten
+  upquote=true,           % ' und ` als gerade Zeichen (Shell-Kommandos!)
 }
 \lstdefinestyle{py}{style=base,language=Python}
 \lstdefinestyle{cpp}{style=base,language=C++}
