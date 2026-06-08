@@ -392,11 +392,16 @@ def generate_launch_description():
     robot_description = ParameterValue(Command(['xacro ', xacro_file]),
                                        value_type=str)
     rsp = Node(package='robot_state_publisher', executable='robot_state_publisher',
-               parameters=[{'robot_description': robot_description}])
+               parameters=[{'robot_description': robot_description,
+                            'use_sim_time': True}])   # TF-Stamps = Gazebo-Zeit
     gz = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([ros_gz_sim, 'launch', 'gz_sim.launch.py'])),
         launch_arguments={'gz_args': '-r empty.sdf'}.items())   # -r: sofort laufen
+    # /clock von Gazebo nach ROS bruecken ('[' = gz -> ROS) -- Zeitquelle fuer
+    # alle use_sim_time-Knoten (controller_manager, rsp, RViz)
+    clock_bridge = Node(package='ros_gz_bridge', executable='parameter_bridge',
+                        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'])
     spawn = Node(package='ros_gz_sim', executable='create',
                  arguments=['-topic', 'robot_description', '-name', 'rrarm'])
     jsb = Node(package='controller_manager', executable='spawner',
@@ -404,7 +409,7 @@ def generate_launch_description():
     arm = Node(package='controller_manager', executable='spawner',
                arguments=['arm_controller'])
     return LaunchDescription([
-        rsp, gz, spawn,
+        rsp, gz, clock_bridge, spawn,
         RegisterEventHandler(OnProcessExit(target_action=spawn, on_exit=[jsb])),
         RegisterEventHandler(OnProcessExit(target_action=jsb, on_exit=[arm])),
     ])
@@ -533,7 +538,8 @@ ros2 run p0a_arm arm_commander
 \end{lstlisting}
 \begin{lstlisting}[style=bash,caption={Terminal 3 (optional) -- RViz eigenständig}]
 source ~/ros2_ws/install/setup.bash
-rviz2 -d "$(ros2 pkg prefix --share p0a_arm)/config/arm.rviz"
+rviz2 -d "$(ros2 pkg prefix --share p0a_arm)/config/arm.rviz" \
+  --ros-args -p use_sim_time:=true     # mit Gazebo: sonst "No transform"
 \end{lstlisting}
 
 \begin{warnbox}[title={RViz neben Gazebo -- nicht über display.launch.py}]
@@ -779,22 +785,141 @@ float64 final_error
 ---
 float64 distance_to_goal
 \end{lstlisting}
-Der Action-Server rechnet mit \code{ik\_dls} die Zielwinkel (Startwert: der
-aktuelle Gelenkzustand aus \code{/joint\_states}), sendet die Trajektorie über
-den internen \code{FollowJointTrajectory}-Client und meldet laufend die
-Restdistanz als Feedback. Test von der Kommandozeile:
-\begin{lstlisting}[style=bash,caption={Action-Goal senden, Feedback live}]
-ros2 action send_goal /arm/reach_point \
-  p0a_arm_interfaces/action/ReachPoint "{x: 1.2, y: 0.6}" --feedback
+\paragraph{Interface erweitern.} Actions brauchen zusätzlich \code{action\_msgs}.
+Die Action neben dem \code{srv} zur Generierung hinzufügen:
+\begin{lstlisting}[style=bash,caption={\code{p0a\_arm\_interfaces/CMakeLists.txt} (Ergänzung)}]
+find_package(action_msgs REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/SetNamedPose.srv"
+  "action/ReachPoint.action"
+  DEPENDENCIES action_msgs
+)
 \end{lstlisting}
-\screenshotplaceholder{p0a-reach}{RViz (oder Gazebo) während der Arm das
-kartesische Ziel anfährt -- am besten mit eingeblendeter Endeffektor-Spur. Belegt
+\begin{lstlisting}[style=xml,caption={\code{p0a\_arm\_interfaces/package.xml} (Ergänzung)}]
+<depend>action_msgs</depend>
+\end{lstlisting}
+
+\paragraph{Action-Server.} Er löst die IK (Startwert: aktueller Gelenkzustand
+aus \code{/joint\_states}), sendet die Trajektorie an den \code{arm\_controller}
+und meldet die Restdistanz als Feedback, bis das Ziel erreicht ist.
+\begin{lstlisting}[style=py,caption={\code{p0a\_arm/reach\_action\_server.py} (Kern)}]
+import math, time
+import rclpy
+from rclpy.action import ActionServer
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.node import Node
+from builtin_interfaces.msg import Duration
+from sensor_msgs.msg import JointState
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from p0a_arm_interfaces.action import ReachPoint
+from p0a_arm.ik import fk, ik_dls
+
+JOINTS = ['joint1', 'joint2']
+
+class ReachActionServer(Node):
+    def __init__(self):
+        super().__init__('reach_action_server')
+        cb = ReentrantCallbackGroup()
+        self.joint_pos = {}
+        self.pub = self.create_publisher(
+            JointTrajectory, '/arm_controller/joint_trajectory', 10)
+        self.create_subscription(JointState, '/joint_states',
+            self.on_joint_state, 10, callback_group=cb)
+        ActionServer(self, ReachPoint, '/arm/reach_point',
+            execute_callback=self.execute, callback_group=cb)
+
+    def on_joint_state(self, msg):
+        for n, p in zip(msg.name, msg.position):
+            self.joint_pos[n] = p
+
+    def current_q(self):
+        return [self.joint_pos.get(j, 0.0) for j in JOINTS]
+
+    def execute(self, goal_handle):
+        target = [goal_handle.request.x, goal_handle.request.y, 0.0]
+        q_goal, _ = ik_dls(target, self.current_q())      # IK loesen
+        traj = JointTrajectory(joint_names=JOINTS)
+        pt = JointTrajectoryPoint(positions=[float(v) for v in q_goal])
+        pt.time_from_start = Duration(sec=2)
+        traj.points = [pt]
+        self.pub.publish(traj)                             # Trajektorie senden
+        fb = ReachPoint.Feedback()
+        deadline = time.time() + 6.0
+        while time.time() < deadline:                      # Feedback-Schleife
+            ee = fk(self.current_q())
+            dist = math.hypot(target[0]-ee[0], target[1]-ee[1])
+            fb.distance_to_goal = float(dist)
+            goal_handle.publish_feedback(fb)
+            if dist < 0.02:
+                break
+            time.sleep(0.1)
+        ee = fk(self.current_q())
+        res = ReachPoint.Result()
+        res.final_error = float(math.hypot(target[0]-ee[0], target[1]-ee[1]))
+        res.success = res.final_error < 0.05
+        goal_handle.succeed()
+        return res
+
+def main():
+    rclpy.init()
+    ex = MultiThreadedExecutor()
+    ex.add_node(ReachActionServer())
+    ex.spin()
+\end{lstlisting}
+
+\begin{warnbox}[title={MultiThreadedExecutor + ReentrantCallbackGroup}]
+Der \code{execute}-Callback blockiert in seiner Feedback-Schleife. Damit die
+\code{/joint\_states}-Subscription \emph{währenddessen} weiterläuft, liegen beide
+in einer \code{ReentrantCallbackGroup} unter einem
+\code{MultiThreadedExecutor}. Mit dem Standard-Executor bliebe der Gelenkzustand
+eingefroren -- das Feedback käme nie voran.
+\end{warnbox}
+
+\noindent Einstiegspunkt in \code{setup.py}:
+\begin{lstlisting}[style=py,caption={\code{p0a\_arm/setup.py} -- \code{entry\_points}}]
+'reach_action_server = p0a_arm.reach_action_server:main',
+\end{lstlisting}
+
+\paragraph{Ausführen (vier Terminals).} Gazebo-Stack starten, Action-Server
+bereitstellen, dann Ziele senden; RViz optional.
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- bauen + Gazebo-Stack}]
+cd ~/ros2_ws
+colcon build --packages-select p0a_arm_interfaces p0a_arm
+source install/setup.bash
+ros2 launch p0a_arm gazebo.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Action-Server}]
+source ~/ros2_ws/install/setup.bash
+ros2 run p0a_arm reach_action_server
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 3 -- drei kartesische Ziele anfahren (mit Feedback)}]
+source ~/ros2_ws/install/setup.bash
+ros2 action send_goal /arm/reach_point \
+  p0a_arm_interfaces/action/ReachPoint "{x: 1.2, y: 0.4}" --feedback
+ros2 action send_goal /arm/reach_point \
+  p0a_arm_interfaces/action/ReachPoint "{x: 0.6, y: 0.9}" --feedback
+ros2 action send_goal /arm/reach_point \
+  p0a_arm_interfaces/action/ReachPoint "{x: 1.5, y: -0.3}" --feedback
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 4 (optional) -- RViz eigenständig}]
+source ~/ros2_ws/install/setup.bash
+rviz2 -d "$(ros2 pkg prefix --share p0a_arm)/config/arm.rviz" \
+  --ros-args -p use_sim_time:=true     # mit Gazebo: sonst "No transform"
+\end{lstlisting}
+\noindent Alle drei Ziele liegen im erreichbaren Ring ($0{,}2 \le r \le 1{,}8$
+bei $l_1=1{,}0$, $l_2=0{,}8$); der Arm fährt sie nacheinander an, \code{--feedback}
+zeigt die schrumpfende Restdistanz, das Result \code{success} + \code{final\_error}.
+\screenshotplaceholder{p0a-reach}{RViz (oder Gazebo), während der Arm ein
+kartesisches Ziel anfährt -- am besten mit eingeblendeter Endeffektor-Spur. Belegt
 die selbst implementierte IK plus den Action-Mechanismus mit Feedback.}
 \begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 8 (\# neu / \# angepasst)}]
 src/
 |- p0a_arm_interfaces/
 |  |- action/ReachPoint.action  # neu
-|  `- CMakeLists.txt            # angepasst: rosidl_generate_interfaces(... action ...)
+|  |- CMakeLists.txt            # angepasst: action + DEPENDENCIES action_msgs
+|  `- package.xml               # angepasst: <depend>action_msgs</depend>
 `- p0a_arm/
    |- setup.py                       # angepasst: entry_points -> reach_action_server
    `- p0a_arm/reach_action_server.py # neu
@@ -829,6 +954,12 @@ src/
   Frame} auf \code{world} stellen und ein \code{RobotModel}-Display
   (\code{/robot\_description}, QoS \emph{Transient Local}) hinzufügen -- oder die
   fertige \code{config/arm.rviz} laden.
+\item \textbf{``No transform from [link1] to [world]'', Modell bewegt sich nicht
+  (mit Gazebo).} Sim-Zeit-Problem. Zweierlei nötig: (1)~\code{/clock} von Gazebo
+  nach ROS brücken (\code{ros\_gz\_bridge}, siehe \code{gazebo.launch.py}) --
+  fehlt sie, warnt der \code{controller\_manager} ``No clock received''; (2)~%
+  \code{robot\_state\_publisher} \emph{und} RViz mit \code{use\_sim\_time:=true}
+  starten. Nur beides zusammen liefert konsistente TF-Zeitstempel.
 \end{itemize}
 \end{warnbox}
 
