@@ -1,13 +1,32 @@
 % =============================================================
 %  ch16_projekt2.tex  --  Projekt 2: Tischtennisroboter
+%  Gliederung: Vorueberlegungen (Architektur, Mechanik, CAD/URDF) und
+%  Vorgehensweise (zuerst Wahrnehmung simulieren, dann Roboter).
 % =============================================================
 
 \chapter{Projekt 2 -- Tischtennisroboter}
+\label{ch:projekt2}
 
 \textbf{Ziel:} Ballflug per Stereokamera + Kalman schätzen, Roboter fährt an
 die Abschlagposition und schätzt Abschlagzeitpunkt und -trajektorie.
 
-\section{ROS\,2-Bausteine}
+\begin{infobox}[title={Grundlagen aus den Einstiegsprojekten werden vorausgesetzt}]
+Die \emph{Bausteine} sind in den Einstiegsprojekten eingeführt und werden hier
+nur referenziert: \textbf{Stereo-Triangulation und Kalman-Tracking} in
+Projekt~0.B (Kap.~\ref{ch:projekt0b}); \textbf{\code{ros2\_control}, URDF/Xacro,
+Topics, Services und Actions} in Projekt~0.A (Kap.~\ref{ch:projekt0a}). Dieses
+Kapitel gliedert sich in \textbf{Vorüberlegungen} (Architektur, Mechanik,
+Simulierbarkeit, CAD/URDF) und \textbf{Vorgehensweise} (was wir in welcher
+Reihenfolge umsetzen).
+\end{infobox}
+
+% =============================================================
+\section{Vorüberlegungen}
+Bevor gebaut wird, klären wir die Software-Bausteine, wo gerechnet wird, den
+mechanischen Aufbau und seine Grenzen in der Simulation sowie die nebenläufige
+Ablauflogik.
+
+\subsection{ROS\,2-Bausteine}
 \begin{longtable}{@{}p{2.6cm}p{12cm}@{}}
 \toprule
 \textbf{Typ} & \textbf{Konkret} \\
@@ -28,7 +47,7 @@ Parameter & Kamerakalibrierung, Ballfarbe/-radius, EKF-$Q$/$R$, Tischgeometrie \
 \bottomrule
 \end{longtable}
 
-\section{rqt\_graph (vereinfacht)}
+\subsection{Architektur und Wahrnehmungskette}
 \begin{center}
 \begin{tikzpicture}[node distance=5mm and 11mm]
 \node[node] (cam) {/stereo\_camera};
@@ -43,13 +62,467 @@ Parameter & Kamerakalibrierung, Ballfarbe/-radius, EKF-$Q$/$R$, Tischgeometrie \
 \draw[flow] (trk) -- node[topic,fill=white,inner sep=1pt]{\scriptsize pred traj} (plan);
 \draw[flow] (plan) -- node[topic,fill=white,inner sep=1pt]{\scriptsize target pose} (rc);
 \end{tikzpicture}
-\captionof{figure}{Projekt~2: Wahrnehmungskette von der Stereokamera über den
+\captionof{figure}{Wahrnehmungskette von der Stereokamera über den
 EKF bis zum Schlagplaner und Roboter.}
 \end{center}
+\noindent\textbf{Kernidee:} Der EKF (Kapitel~\ref{ch:kalman}) bekommt die
+verrauschten 3D-Ballpositionen und extrapoliert per reiner Prädiktion bis zur
+Schlagebene; daraus folgen Abfangpunkt und -zeit. \textbf{Hauptsächlich reales
+Problem:} Latenz und Timing -- in der Simulation triviale Zeit, real kritisch.
 
-\noindent\textbf{Kernidee:} Der EKF (Kapitel~\ref{ch:kalman},
-konstante-Beschleunigung-Modell mit Gravitation) bekommt die verrauschten
-3D-Ballpositionen und extrapoliert per reiner Prädiktion bis zur Schlagebene.
-Daraus folgen Abfangpunkt und -zeit.
-\textbf{Hauptsächlich reales Problem:} Latenz und Timing -- in der Simulation
-triviale Zeit, real kritisch.
+\subsection{Kamera-Architektur -- wo wird gerechnet?}
+Lohnt es sich, die Stereokamera an den ESP32 / Raspberry Pi Zero zu hängen und
+die Rohdaten per ROS-Service oder einfachem UDP/WLAN weiterzuleiten -- oder
+entstehen Zeit-/Rechenleistungsprobleme?
+
+\subsubsection{Die Bandbreitenrechnung entscheidet}
+Die synchronisierte Stereokamera liefert ein side-by-side-Bild
+(z.\,B.\ $2\times1280\times720$). Was das pro Sekunde bedeutet:
+\begin{longtable}{@{}p{6.2cm}rr@{}}
+\toprule
+\textbf{Datenstrom} & \textbf{pro Frame} & \textbf{bei 60\,fps} \\
+\midrule
+Stereo roh, YUYV (2\,B/px), $2560\times720$ & 3{,}69\,MB & $\approx$\,1769\,Mbit/s \\
+Stereo MJPEG-komprimiert ($\approx$\,1:10)   & 0{,}37\,MB & $\approx$\,177\,Mbit/s \\
+\textbf{Nur 3D-Ballposition} (Header + 3 Floats) & $\approx$\,80\,B & $\approx$\,0{,}1\,Mbit/s \\
+\bottomrule
+\end{longtable}
+\noindent Dem gegenüber die realistischen Linkkapazitäten:
+\begin{longtable}{@{}p{6.2cm}r@{}}
+\toprule
+\textbf{Verbindung} & \textbf{real nutzbar} \\
+\midrule
+ESP32 WLAN (TCP, real)         & $\approx$\,10--30\,Mbit/s \\
+Pi Zero (2{,}4\,GHz WLAN)     & einige zehn Mbit/s, hoher Jitter \\
+Pi\,4 WLAN (Dualband)          & $\approx$\,100--300\,Mbit/s, mit Jitter \\
+Pi\,4 Gigabit-Ethernet (Kabel) & 1000\,Mbit/s, deterministisch \\
+USB\,2 / USB\,3               & 480 / 5000\,Mbit/s \\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Verdikt pro Plattform}
+\begin{description}[style=nextline,leftmargin=1.4em]
+\item[ESP32 -- nein.] Zwei harte Gründe: (1)~Der ESP32 ist \emph{kein}
+  USB-Host für UVC-Kameras. (2)~177--1769\,Mbit/s liegen um Größenordnungen
+  über seinem WLAN-Durchsatz. Der ESP32 gehört auf die
+  \textbf{Echtzeit-Motorebene}, nicht an die Kamera.
+\item[Pi Zero -- technisch möglich, aber schlechte Idee.] Der Zero\,2\,W kann
+  mit OTG-Adapter eine UVC-Kamera einlesen, aber: schwache CPU, nur
+  2{,}4-GHz-WLAN, und er wäre allein mit dem Datenschaufeln gesättigt. Für
+  einen \emph{latenzkritischen} Balltracker ist WLAN-Jitter Gift.
+\item[Pi\,4 -- ja, und das ist der richtige Ansatz.] Der Pi\,4 hat USB\,3,
+  Gigabit-Ethernet und eine brauchbare Quad-Core-CPU. Er kann die Kamera
+  einlesen \emph{und die Bildverarbeitung lokal machen}.
+\end{description}
+\begin{infobox}[title={Das richtige Muster: am Rand rechnen, nur das Ergebnis senden}]
+Schiebe nicht die Pixel durchs Netz, sondern die \textbf{Erkenntnis}. Lass den
+Pi\,4 (direkt an der Kamera) die Stereo-Erkennung machen und nur die
+\textbf{3D-Ballposition} publizieren -- das sind $\approx$\,0{,}1\,Mbit/s,
+trivial über jedes Netz. ROS\,2/DDS transportiert das Topic
+netzwerktransparent zum PC. Für deterministische Latenz: \textbf{Pi\,4 per
+Kabel-Gigabit-Ethernet} an den PC.
+\end{infobox}
+
+\subsubsection{Sparse statt dense: der Ball braucht keine volle Tiefenkarte}
+Eine dichte Disparitätskarte (SGBM über das ganze Bild) ist teuer. Für die
+Ballverfolgung genügt \textbf{sparse Triangulation}: den Ball (heller Blob) in
+\emph{beiden} rektifizierten Bildern detektieren und über $Z=fb/d$ nur die Tiefe
+\emph{dieses einen Punktes} bestimmen. Genau diese Pixel-zu-3D-Triangulation
+haben wir in Projekt~0.B (Kap.~\ref{ch:projekt0b}) implementiert; sie läuft auf
+dem Pi\,4 locker bei 60--120\,fps.
+
+\subsubsection{ROS-Service, UDP oder Topic?}
+\begin{itemize}
+\item \textbf{ROS-Service: falsch} für Streaming. Services sind synchrones
+  Request/Response (blockierend, one-shot) -- für kontinuierliche Ströme
+  ungeeignet.
+\item \textbf{ROS-Topic: richtig.} Ergebnis (Ballposition) als
+  \code{RELIABLE}-Topic; falls doch Bilder, \code{image\_transport} mit
+  \code{compressed} und QoS \code{BEST\_EFFORT}.
+\item \textbf{Rohes UDP/GStreamer: nur als letzter Ausweg} -- du verlierst die
+  ROS-Integration. Für berechnete Ergebnisse unnötig.
+\end{itemize}
+\begin{center}
+\begin{tikzpicture}[node distance=6mm and 14mm]
+\node[node,fill=accent2!8,draw=accent2] (cam) {Stereokamera\\\scriptsize USB};
+\node[node,right=of cam] (pi)
+  {Raspberry Pi\,4\\\scriptsize Stereo + Balldetektion\\\scriptsize (sparse Triangulation)};
+\node[node,right=22mm of pi] (pc) {Externer PC\\\scriptsize EKF + Schlagplaner};
+\node[node,below=8mm of pc] (esp) {ESP32 (micro-ROS)\\\scriptsize Achsen / Schrittmotoren};
+\draw[flow] (cam) -- node[topic,fill=white,inner sep=1pt]{\scriptsize USB3} (pi);
+\draw[flow] (pi)  -- node[topic,fill=white,inner sep=1pt]{\scriptsize /ball/position (GbE)} (pc);
+\draw[flow] (pc)  -- node[topic,fill=white,inner sep=1pt]{\scriptsize Soll-Trajektorie} (esp);
+\end{tikzpicture}
+\captionof{figure}{Empfohlene Architektur: schwere Pixelarbeit am Pi\,4 nahe der
+Kamera, nur die destillierte Ballposition wandert (kabelgebunden) zum PC.}
+\end{center}
+
+\subsection{Mechanischer Aufbau: Portalsystem (Gantry)}
+\subsubsection{Grundkonzept}
+Statt eines Delta-Roboters ein \textbf{kartesisches Portalsystem}: große
+Linearachsen positionieren den Schläger grob im Raum, ein kleiner Arm am Ende
+führt die Schlagbewegung aus und stellt den Schlägerwinkel. Bezug
+Tischtennisplatte (ITTF): $2{,}74\,\text{m} \times 1{,}525\,\text{m}$, Höhe
+$0{,}76\,\text{m}$, Netz $15{,}25\,\text{cm}$. Die \textbf{X-Achse} überspannt
+die Plattenbreite ($1{,}525\,\text{m}$).
+
+\subsubsection{Geschachtelte Achsen}
+\begin{itemize}
+\item \textbf{X-Achse} (Plattenbreite, horizontal): zwei parallele
+  Führungsstäbe, Zahnriemenantrieb, X-Schlitten. \emph{Glatte Hohlstahl-Stäbe +
+  GT2-Zahnriemen}, leichter Schlitten.
+\item \textbf{Z-Achse} (Höhe, vertikal): nach demselben Prinzip, montiert
+  \emph{im} X-Schlitten. Der Abstand der X-Führungsstäbe definiert den
+  \textbf{Hub der Z-Achse}.
+\item \textbf{Y-Achse} (Tiefe): entweder starr (fester Ausleger) oder als
+  dritte Linearachse auf dem Z-Schlitten.
+\item \textbf{Schlagarm}: auf dem Y/Z-Schlitten ein kleiner Roboterarm mit
+  Schlägereinspannung.
+\end{itemize}
+\begin{warnbox}[title={Zahnriemen, nicht Keilriemen}]
+Für \emph{Positionierung} brauchst du einen \textbf{Zahnriemen} (GT2),
+keinen Keilriemen. Ein Keilriemen überträgt per Reibschluss und \emph{schlupft}
+-- damit verlierst du Positionsgenauigkeit. Zahnriemen sind formschlüssig und
+der Standard in 3D-Druckern/Plottern.
+\end{warnbox}
+
+\subsubsection{Antriebstopologie und Hardware-Anschluss}
+\begin{longtable}{@{}p{3.2cm}p{11.4cm}@{}}
+\toprule
+\textbf{Element} & \textbf{Umsetzung} \\
+\midrule
+X-/Z-/Y-Motoren  & NEMA-17, möglichst \emph{rahmenfest} (Riemen treibt Schlitten) \\
+Treiber          & TMC2209 (UART) je Achse, StallGuard als Last-/Endlagenhinweis \\
+Endschalter      & optische/mechanische Endstops je Achse zum Homing \\
+Strom/Spannung   & INA226-Modul je Treiberzweig (I\textsuperscript{2}C), optional \\
+Controller       & ESP32 (micro-ROS): bündelt STEP/DIR bzw.\ UART, liest Endstops + INA226 \\
+Versorgung       & 24\,V Netzteil für Motoren, getrennte 5\,V-Logik; Sternmasse \\
+Schlagarm-Motoren & klein, idealerweise basisnah (Riemen-/Seilzug zu distalen Gelenken) \\
+\bottomrule
+\end{longtable}
+\begin{center}
+\begin{tikzpicture}[scale=1.0,every node/.style={font=\scriptsize}]
+\draw[thick,accent] (0,0) rectangle (7,4.2);
+\node[accent] at (3.5,4.5) {Rahmen (rahmenfest, X-Motor + Idler)};
+\draw[gray,line width=2pt] (0.5,3.6)--(6.5,3.6);
+\draw[gray,line width=2pt] (0.5,2.4)--(6.5,2.4);
+\node[gray] at (-0.2,3.0) {X};
+\draw[fill=accent!12,draw=accent] (2.6,2.2)rectangle(4.4,3.8);
+\node[accent] at (3.5,3.95) {X-Schlitten};
+\draw[accent2,line width=1.5pt] (2.9,2.3)--(2.9,3.7);
+\draw[accent2,line width=1.5pt] (4.1,2.3)--(4.1,3.7);
+\node[accent2] at (3.5,3.0) {Z};
+\draw[fill=accent2!12,draw=accent2] (2.95,2.55)rectangle(4.05,3.0);
+\node[accent2] at (3.5,2.78) {Z-Schlitten};
+\draw[line width=1.4pt,black] (3.5,2.55)--(3.5,1.0);
+\draw[fill=black!8] (3.2,0.6) rectangle (3.8,1.0);
+\node at (3.5,0.8) {Arm};
+\draw[fill=accent!20,draw=accent] (3.35,0.2) rectangle (3.65,0.6);
+\node[rotate=90] at (3.5,0.4) {\tiny Schl\"ager};
+\draw[<->,accent2] (4.0,2.55)--(4.0,0.4);
+\node[accent2,right] at (4.05,1.5) {Hebelarm $L$};
+\end{tikzpicture}
+\captionof{figure}{Frontblick: X-Schlitten trägt die im Rod-Abstand
+geschachtelte Z-Achse; der Schlagarm hängt als Ausleger (Hebelarm $L$).}
+\end{center}
+
+\subsection{Das Hebelarm- und Schwingungsproblem}
+Der Arm hängt mit Abstand $L$ unter der X-Achse. Bei harten Beschleunigungen
+zur Zielposition entstehen Reaktionskräfte und -momente, die den Ausleger zum
+Schwingen anregen.
+
+\subsubsection{Die Physik}
+Beschleunigt der Schlitten mit $a$, wirkt auf die bewegte Masse $m$ die
+Trägheitskraft $F=m\,a$. Über den Hebelarm $L$ ergibt das ein \textbf{Biegemoment}
+\begin{equation}
+M = F\cdot L = m\,a\,L.
+\end{equation}
+Der Ausleger verhält sich wie ein einseitig eingespannter Balken (Kragträger)
+mit Steifigkeit $k=\dfrac{3EI}{L^3}$ und erster \textbf{Eigenfrequenz}
+\begin{equation}
+f_1 = \frac{1}{2\pi}\sqrt{\frac{k}{m_{\text{eff}}}}
+    = \frac{1}{2\pi}\sqrt{\frac{3EI}{m_{\text{eff}}\,L^3}}.
+\end{equation}
+$f_1$ fällt mit $L^{3/2}$ -- ein längerer Ausleger ist drastisch weicher.
+Anregung nahe $f_1$ führt zu Resonanz und Nachschwingen, was die
+Schlaggenauigkeit ruiniert.
+
+\subsubsection{Gegenmaßnahmen}
+\begin{enumerate}
+\item \textbf{Bewegte Masse minimieren:} Motoren rahmenfest (Riemen-/Seilzug,
+  CoreXY-Logik), Arm aus Aluminium/CFK, Schwerpunkt nah an der Achse.
+\item \textbf{Steifigkeit maximieren:} große Schienenquerschnitte (gestützte
+  Linearschienen), Doppelführung, kurzer Ausleger, triangulierter Rahmen.
+\item \textbf{Ruckbegrenzte Profile (S-Kurve):} sanftes Beschleunigen regt hohe
+  Frequenzen weniger an.
+\item \textbf{Input Shaping / Resonanzkompensation:} der Steuerbefehl wird so
+  vorgeformt, dass die Anregung bei $f_1$ ausgelöscht wird -- wie Bambu/Klipper
+  per ADXL345. Die wirksamste softwareseitige Maßnahme.
+\item \textbf{Dämpfung:} Strukturdämpfung, abgestimmter Tilger, höhere
+  Riemenvorspannung.
+\end{enumerate}
+\begin{infobox}[title=Anknüpfung an den FEM-Hintergrund]
+Bestimme $f_1$ und die Modenformen per \textbf{Modalanalyse} (SolidWorks
+Simulation / FEM). Das liefert die Frequenz, auf die du das Input Shaping
+abstimmst, und zeigt, welche Strukturteile zu versteifen sind.
+\end{infobox}
+
+\subsection{Simulierbarkeit in Gazebo und RViz}
+Die Sim-Real-Trennung über \code{ros2\_control} (Kap.~\ref{ch:simreal}) und der
+Gazebo-Workflow sind aus 0.A/0.B bekannt -- hier nur die \emph{Grenzen}.
+\subsubsection{Was Gazebo kann -- und was nicht}
+\begin{longtable}{@{}p{7.4cm}p{7.2cm}@{}}
+\toprule
+\textbf{Gazebo bildet ab (Starrkörperdynamik)} & \textbf{Gazebo bildet \emph{nicht} ab} \\
+\midrule
+Anfahren der Zielposition (prism.\ + rot.\ Gelenke) & Strukturelle Biegung der Stäbe \\
+Schlagbewegung des Arms      & Riemendehnung als kontinuierliche Elastizität \\
+Gelenkmomente/-kräfte (auslesbar) & Modale Resonanz/Eigenschwingung \\
+Dynamische Kopplung (Armträgheit $\leftrightarrow$ Portal) & Rahmenflattern, Mikrovibrationen \\
+Ball-Schläger-Kontakt + Reaktionskräfte & exakte Spin-/Absprungphysik (nur genähert) \\
+\bottomrule
+\end{longtable}
+\begin{warnbox}[title=Der Kernpunkt]
+Gazebo behandelt Links als \textbf{starre Körper}. Die befürchtete Schwingung
+kommt aber aus \emph{struktureller Nachgiebigkeit} (Stabbiegung, Riemendehnung)
+-- starre Links biegen sich nicht, also zeigt Standard-Gazebo die Resonanz
+\emph{nicht}.
+\end{warnbox}
+\subsubsection{Wege, die Nachgiebigkeit doch abzubilden}
+\begin{itemize}
+\item \textbf{Klumpen-Nachgiebigkeit in Gazebo:} ein steifes Feder-Dämpfer-Gelenk
+  zwischen Segmenten (Riemendehnung als prismatische Feder). Näherung der ersten
+  Mode, kein volles Modalverhalten.
+\item \textbf{Echte Strukturvibration:} FEM / flexible Mehrkörpersimulation --
+  SolidWorks (modal), MATLAB \textbf{Simscape Multibody}, Adams; Co-Simulation
+  mit ROS möglich.
+\item \textbf{RViz:} reine Visualisierung -- Kräfte als Marker, wenn ein anderer
+  Knoten sie berechnet.
+\end{itemize}
+\begin{infobox}[title=Empfohlene Aufteilung]
+\textbf{Gazebo} für Regelung, Trajektorientracking, Momentenbudget und
+Ball-Schläger-Kontakt. \textbf{FEM/Simscape} für die strukturelle Resonanz
+($f_1$). Beides verbindet die Input-Shaping-Frequenz.
+\end{infobox}
+
+\subsection{CAD-Module und URDF}
+Wie man eine URDF aus Links, Joints und einem \code{ros2\_control}-Block aufbaut,
+steht in Projekt~0.A (Kap.~\ref{ch:projekt0a}) und im CAD$\to$URDF-Kapitel
+(Kap.~\ref{ch:cad_urdf}). Hier das Gantry-Spezifische.
+\subsubsection{Notwendige CAD-Module mit Designanforderungen}
+\begin{longtable}{@{}p{3.0cm}p{4.4cm}p{7.2cm}@{}}
+\toprule
+\textbf{Modul} & \textbf{Funktion} & \textbf{Designanforderung} \\
+\midrule
+Rahmen / Basis         & trägt X-Achse + X-Motor, ortsfest & sehr steif (Alu-Profil), trianguliert; URDF-Wurzel \\
+X-Achse                & horizontale Verfahrachse & Hohlstahl-Stäbe + GT2-Riemen; Motor rahmenfest; $>1{,}6\,$m \\
+X-Schlitten            & trägt + verfährt die Z-Achse & leicht, biegesteif; Stababstand $=$ Z-Hub \\
+Z-Achse                & vertikale Verfahrachse & gleiches Prinzip; Hub $=$ X-Stababstand \\
+Z-Schlitten            & trägt Y/Arm & geringe Masse (bewegte Masse!) \\
+Y-Achse (optional)     & Tiefenzustellung & nur falls nötig; sonst starrer Ausleger \\
+Armbasis               & Anbindung Arm an Schlitten & steife Einspannung; kurzer Hebel $L$ \\
+Armglieder (2--3 DOF)  & Schwung + Schlägerwinkel & leicht (Alu/CFK); Motoren basisnah \\
+Schlägereinspannung    & hält den Schläger & starr, definierte Schlägerebene \\
+Endeffektor-Frame      & Schlagpunkt + Normale & TF-Frame: Schlägerflächenmitte + Normale \\
+\bottomrule
+\end{longtable}
+\subsubsection{Kinematische Kette}
+\begin{center}
+\begin{tikzpicture}[node distance=3.5mm and 7mm,every node/.style={font=\scriptsize}]
+\node[node] (w)  {world};
+\node[node,right=of w]  (b)  {base\_link};
+\node[node,right=of b]  (xc) {x\_carriage};
+\node[node,right=of xc] (zc) {z\_carriage};
+\node[node,right=of zc] (ab) {arm\_base};
+\node[node,right=of ab] (l1) {link1};
+\node[node,below=5mm of l1] (l2) {link2};
+\node[node,left=of l2]  (pad) {paddle};
+\draw[flow] (w) --node[above,font=\tiny]{fixed}(b);
+\draw[flow] (b) --node[above,font=\tiny,align=center]{joint\_x\\prism.}(xc);
+\draw[flow] (xc)--node[above,font=\tiny,align=center]{joint\_z\\prism.}(zc);
+\draw[flow] (zc)--node[above,font=\tiny]{[joint\_y]}(ab);
+\draw[flow] (ab)--node[above,font=\tiny,align=center]{arm1\\rev.}(l1);
+\draw[flow] (l1)--node[right,font=\tiny]{arm2 rev.}(l2);
+\draw[flow] (l2)--node[above,font=\tiny]{wrist rev.}(pad);
+\end{tikzpicture}
+\captionof{figure}{Kinematische Kette: drei (optional vier) Linear-/Drehübergänge
+bis zur Armbasis, dann der Schlagarm bis zum Schläger.}
+\end{center}
+\subsubsection{URDF/Xacro-Gerüst}
+\begin{lstlisting}[style=xml,caption={Gantry + Schlagarm als URDF (gekürzt)}]
+<link name="base_link"> <!-- Wurzel: Rahmen fest mit der Welt --> </link>
+
+<joint name="joint_x" type="prismatic">          <!-- X ueber die Plattenbreite -->
+  <parent link="base_link"/> <child link="x_carriage"/>
+  <origin xyz="0 0 1.0"/> <axis xyz="1 0 0"/>
+  <limit lower="0" upper="1.5" effort="60" velocity="3.0"/>
+</joint>
+<link name="x_carriage"> ... </link>
+
+<joint name="joint_z" type="prismatic">          <!-- Z vertikal, Hub = X-Stababstand -->
+  <parent link="x_carriage"/> <child link="z_carriage"/>
+  <axis xyz="0 0 1"/>
+  <limit lower="-0.4" upper="0.0" effort="50" velocity="2.5"/>
+</joint>
+<link name="z_carriage"> ... </link>
+
+<joint name="joint_arm1" type="revolute">        <!-- Schlagarm (arm2, wrist analog) -->
+  <parent link="arm_base"/> <child link="link1"/>
+  <axis xyz="0 1 0"/>
+  <limit lower="-2.0" upper="2.0" effort="8" velocity="12"/>
+</joint>
+<link name="link1"> ... </link>
+
+<joint name="joint_paddle" type="fixed">         <!-- Schlaeger-Endeffektor -->
+  <parent link="link2"/> <child link="paddle"/>
+  <origin xyz="0 0 0.12"/>
+</joint>
+<link name="paddle"> ... </link>
+\end{lstlisting}
+\begin{infobox}[title=Riemenübersetzung der Linearachsen]
+Eine prismatische Riemenachse wandelt Motordrehung in Linearweg: \emph{Weg pro
+Umdrehung} $=$ Zähnezahl $\times$ Riementeilung. Ein 20-Zahn-GT2-Rad
+($2\,$mm Teilung) ergibt $40\,$mm/Umdrehung; mit $200\times16$ Microsteps folgt
+$40/3200=0{,}0125\,$mm/Microstep. Diese Umrechnung Motor$\leftrightarrow$mm
+gehört ins Hardware-Interface; in der URDF stehen am Joint die \emph{linearen}
+Limits.
+\end{infobox}
+
+\subsection{Ablauf- und Parallellogik}
+Wahrnehmung, Schätzung und Stellgrößen laufen \textbf{nebenläufig} mit sehr
+unterschiedlichen Raten -- als separate ROS\,2-Knoten (teils auf verschiedenen
+Rechnern), die nur über Topics gekoppelt sind und sich nicht gegenseitig
+blockieren (Producer/Consumer).
+\begin{longtable}{@{}p{3.4cm}p{2.8cm}p{8.0cm}@{}}
+\toprule
+\textbf{Knoten} & \textbf{Rate} & \textbf{Aufgabe} \\
+\midrule
+\code{ball\_detector} & Kamera-FPS (30--120\,Hz) & Stereo-Erkennung $\rightarrow$ 3D-Punkt (Pi\,4) \\
+\code{ball\_tracker} (EKF) & pro Messung & Zustand updaten, Flug prädizieren \\
+\code{strike\_planner} & pro EKF-Update & Auftreffpunkt + Zeit + Schlagbahn \\
+\code{robot\_controller} & $\approx$\,100\,Hz & Trajektorie interpolieren, Stellgrößen \\
+ESP32 (micro-ROS) & Echtzeit (kHz) & STEP/DIR-Erzeugung, Endstops \\
+\bottomrule
+\end{longtable}
+\begin{infobox}[title={Frühe Reaktion statt Warten auf die perfekte Schätzung}]
+Der \code{strike\_planner} veröffentlicht bereits nach den \emph{ersten}
+EKF-Schätzungen eine vorläufige \code{/robot/target\_pose}; der Roboter fährt
+sofort grob in Richtung Abfangzone. Jede neue Ballmessung verfeinert die
+Schätzung -- die \code{target\_pose} wird laufend aktualisiert, und der Regler
+folgt der bewegten Sollgröße. So wird die knappe Flugzeit voll genutzt, statt auf
+eine endgültige Schätzung zu warten.
+\end{infobox}
+
+% =============================================================
+\section{Vorgehensweise}
+Wir bauen die \textbf{Wahrnehmung zuerst vollständig in Simulation} und erst
+danach die Robotermechanik und -regelung. So lässt sich das Balltracking und die
+Auftreffpunkt-Schätzung isoliert verifizieren (direkt auf Projekt~0.B
+aufbauend), bevor die Mechanik dazukommt.
+
+\subsection{Phase 1 -- Kamera und Balltracking in Simulation}
+
+\subsubsection{Tischtennisplatte als CAD/SDF-Modell}
+Zuerst wird die Tischtennisplatte konstruiert (CAD $\to$ Mesh/Primitive) und als
+\emph{statisches} Modell in die Gazebo-Welt eingefügt: Platte
+$2{,}74\times1{,}525\times0{,}76\,$m mit Netz. Sie dient als Referenzgeometrie
+und definiert die \textbf{Zielebene} (siehe unten). Die Stereokamera-Welt aus
+Projekt~0.B (Kap.~\ref{ch:projekt0b}) wird um dieses Modell ergänzt.
+
+\subsubsection{Gegnerischen Ballschlag parametrisch simulieren}
+Ein Knoten (oder Gazebo-Plugin) startet den Ball mit einer
+\emph{parametrierbaren} Anfangsbedingung -- so sind Schläge reproduzierbar:
+\begin{lstlisting}[style=yaml,caption={Parameter eines simulierten Gegnerschlags}]
+start_position:  [x0, y0, z0]      # Abschlagort auf der Gegnerseite
+speed:           v0                 # Betrag der Abschlaggeschwindigkeit [m/s]
+azimuth:         phi                # horizontaler Abschlagwinkel [rad]
+elevation:       theta              # vertikaler Abschlagwinkel [rad]
+# optional (spaeter): spin_axis, spin_rate
+\end{lstlisting}
+\noindent Daraus folgt die Anfangsgeschwindigkeit
+$\mathbf{v}_0=v_0\,(\cos\theta\cos\phi,\ \cos\theta\sin\phi,\ \sin\theta)$, die
+dem Ball als Twist gesetzt wird; die Schwerkraft übernimmt Gazebo.
+
+\subsubsection{Stereokamera-Tracking des Balls}
+Die Wahrnehmungskette aus 0.B (\code{ball\_detector} $\rightarrow$
+\code{/ball/point}) trackt den fliegenden Ball und liefert verrauschte
+3D-Positionen im Kamerasystem.
+
+\subsubsection{Auftreffpunkt über schiefen Wurf und EKF}
+Ohne Luftwiderstand ist der Flug ein \textbf{schiefer Wurf} mit bekannter
+Erdbeschleunigung $\mathbf{g}=(0,0,-g)$:
+\begin{equation}
+\mathbf{r}(t) = \mathbf{r}_0 + \mathbf{v}_0\,t + \tfrac{1}{2}\,\mathbf{g}\,t^2 .
+\end{equation}
+Der EKF-Zustand ist $\mathbf{x}=[\mathbf{r},\mathbf{v}]^\top$ (6D), Messung sind
+die 3D-Stereopositionen, das Prozessmodell ist die konstante Beschleunigung
+$\mathbf{g}$. Die Ballmasse ist bekannt -- sie wird erst relevant, sobald
+Luftwiderstand/Spin das Modell \emph{nichtlinear} machen (dann ist der EKF
+zwingend, beim reinen Wurf genügte ein linearer KF). Mit jeder neuen Messung
+werden die Wurfparameter (effektiv $\mathbf{r}_0,\mathbf{v}_0$ bzw.\ der
+aktuelle Zustand) aktualisiert; reine Prädiktionsschritte extrapolieren den Flug
+bis zur Zielebene.
+
+\subsubsection{Zielebene am Plattenrand und Fehlschuss-Erkennung}
+Die \textbf{Zielebene} ist eine \emph{vertikale} Ebene entlang der hinteren
+Plattenkante (Roboterseite), z.\,B.\ $x=x_R$. Der Auftreffpunkt ist der
+Schnittpunkt der prädizierten Bahn mit dieser Ebene:
+\begin{equation}
+t^\ast=\frac{x_R-x_0}{v_{x0}},\qquad
+y^\ast=y(t^\ast),\quad z^\ast=z(t^\ast),
+\end{equation}
+also Koordinaten $(x_R,y^\ast,z^\ast)$ und Abfangzeit $t^\ast$. Der
+\textbf{Plattenrand begrenzt} die gültige Zielzone. Als \textbf{Fehlschuss}
+markiert wird (Flag/Diagnostic), wenn der Ball das gemeinsame Sichtfeld beider
+Kameras verlässt (keine Triangulation mehr -- vgl.\ FOV-Visualisierung in 0.B)
+\emph{oder} der prädizierte Durchstoßpunkt außerhalb der Plattenbreite bzw.\ des
+erreichbaren Bereichs liegt.
+
+\subsubsection{Ausblick: Luftwiderstand}
+Beim leichten Tischtennisball (Masse $m\approx2{,}7\,$g, Durchmesser $40\,$mm)
+ist der Luftwiderstand \emph{nicht} vernachlässigbar -- das kleine Verhältnis von
+Masse zu Querschnittsfläche führt zu spürbarer Verzögerung. Die
+Widerstandskraft wirkt entgegen der Geschwindigkeit und wächst quadratisch:
+\begin{equation}
+\mathbf{F}_D = -\tfrac{1}{2}\,\rho\,C_D\,A\,\lVert\mathbf{v}\rVert\,\mathbf{v},
+\qquad A=\pi r^2,
+\end{equation}
+mit Luftdichte $\rho\approx1{,}2\,$kg/m\textsuperscript{3}, Widerstandsbeiwert
+$C_D\approx0{,}4$ (Kugel) und Querschnittsfläche $A$. Die Bewegungsgleichung
+lautet damit
+\begin{equation}
+\dot{\mathbf{v}} = \mathbf{g} - k\,\lVert\mathbf{v}\rVert\,\mathbf{v},
+\qquad k=\frac{\rho\,C_D\,A}{2m},
+\end{equation}
+und ist \textbf{nichtlinear} in $\mathbf{v}$ -- genau deshalb wird hier der
+\textbf{EKF} (statt eines linearen KF) gebraucht: Das Prozessmodell wird pro
+Schritt linearisiert (Jacobi-Matrix der Beschleunigung nach dem Zustand). Die
+bekannte Ballmasse $m$ geht direkt in $k$ ein. Wirkung: Die reale Flugbahn ist
+\emph{flacher und kürzer} als die reine Wurfparabel -- der Auftreffpunkt
+verschiebt sich, weshalb der Term für eine genaue Abfangzeit-Schätzung relevant
+ist. Der Schritt vom reinen Wurf zum Modell mit Luftwiderstand ist die natürliche
+erste Verfeinerung; der Spin (folgender Abschnitt) baut darauf auf.
+
+\subsubsection{Ausblick: Ballspin (Magnus)}
+Das Modell wird so aufgebaut, dass es um \textbf{Spin} erweiterbar ist: Die
+Magnus-Kraft $\mathbf{F}_M\propto \boldsymbol\omega\times\mathbf{v}$ ergänzt das
+Prozessmodell (nichtlinear $\rightarrow$ EKF/UKF), der Zustand wird um die
+Drehrate $\boldsymbol\omega$ erweitert. Messbar wird der Spin, indem
+\textbf{Markierungen auf dem Ball} getrackt werden, um Rotationsrichtung und
+-geschwindigkeit zu schätzen -- eine spätere Ausbaustufe.
+
+\subsection{Phase 2 -- Roboteranbindung}
+
+\subsubsection{Frühe Abfangbewegung (iterative Verfeinerung)}
+Gemäß der Ablauflogik fährt der Roboter bereits nach den ersten Schätzungen los
+(grobe \code{target\_pose}) und verfeinert das Ziel mit jeder neuen Messung. Das
+minimiert die effektive Reaktionszeit innerhalb der kurzen Ballflugdauer.
+
+\subsubsection{Stellgrößen und Motorsteuerung}
+Die geschätzte \code{target\_pose} (Abfangpunkt + Schlägerorientierung) wird per
+inverser Kinematik in Achswerte umgesetzt: $x,z$ (und optional $y$) aus der
+kartesischen Zielposition, die Armgelenke für den Schlägerwinkel. Der
+\code{joint\_trajectory\_controller} interpoliert, das Hardware-Interface
+(micro-ROS $\rightarrow$ ESP32 $\rightarrow$ TMC2209) erzeugt die Schritte --
+derselbe \code{ros2\_control}-Stack wie in Projekt~0.A und Projekt~1. Hier zählt
+das \textbf{Timing}: in der Simulation trivial, real der kritische Faktor.

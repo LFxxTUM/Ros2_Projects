@@ -35,6 +35,7 @@
 
 % =============================================================
 % TEIL I  --  Theoretische Grundlagen
+%   (Maschinelles Lernen ist hierher gewandert: ch29)
 % =============================================================
 \part{Theoretische Grundlagen}
 
@@ -47,52 +48,11 @@
 \include{chapters/ch05a_regelungstechnik}
 \include{chapters/ch06_schrittmotoren}
 \include{chapters/ch07_zykloidgetriebe}
+\include{chapters/ch29_machine_learning}
 
 % =============================================================
-% TEIL II  --  Hardware-Auswahl
-% =============================================================
-\part{Hardware-Auswahl}
-
-\include{chapters/ch08_komponenten}
-\include{chapters/ch09_pcb}
-
-% =============================================================
-% TEIL III  --  Software-Setup: VM, Linux, ROS 2
-% =============================================================
-\part{Software-Setup: VM, Linux, ROS\,2}
-
-\include{chapters/ch10_betriebssystem}
-\include{chapters/ch11_installation}
-
-% =============================================================
-% TEIL IV  --  Simulation und der Weg vom CAD-Modell zur Realität
-% =============================================================
-\part{Simulation und der Weg vom CAD-Modell zur Realität}
-
-\include{chapters/ch12_simulationswerkzeuge}
-\include{chapters/ch13_sim_real_trennung}
-\include{chapters/ch14_cad_urdf}
-
-% =============================================================
-% TEIL IVb  --  Einstiegsprojekte (Warm-up vor den vier Projekten)
-% =============================================================
-\part{Einstiegsprojekte: Erste Schritte mit ROS\,2, RViz und Gazebo}
-
-\include{chapters/ch14a_projekt0a_arm}
-\include{chapters/ch14b_projekt0b_stereo}
-
-% =============================================================
-% TEIL V  --  Die vier Projekte: Architektur und rqt_graph
-% =============================================================
-\part{Die vier Projekte: Architektur und \code{rqt\_graph}}
-
-\include{chapters/ch15_projekt1}
-\include{chapters/ch16_projekt2}
-\include{chapters/ch17_projekt3}
-\include{chapters/ch18_projekt4}
-
-% =============================================================
-% TEIL VI  --  Stereokamera in ROS 2 -- Praxis mit Code
+% TEIL II  --  Stereokamera in ROS 2: Praxis mit Code
+%   (eigener Teil, direkt nach den theoretischen Grundlagen)
 % =============================================================
 \part{Stereokamera in ROS\,2 -- Praxis mit Code}
 
@@ -103,25 +63,52 @@
 \include{chapters/ch22a_echtzeit_scheduling}
 
 % =============================================================
-% TEIL VII  --  Maschinelles Lernen in ROS 2
+% TEIL III  --  Hardware-Auswahl
 % =============================================================
-\part{Maschinelles Lernen in ROS\,2-Projekten}
+\part{Hardware-Auswahl}
 
-\include{chapters/ch29_machine_learning}
-
-% =============================================================
-% TEIL VIII  --  Tischtennisroboter: Mechanik, Kamera-Architektur, CAD/URDF
-% =============================================================
-\part{Tischtennisroboter: Mechanik, Kamera-Architektur und CAD/URDF}
-
-\include{chapters/ch23_kamera_architektur}
-\include{chapters/ch24_portalsystem}
-\include{chapters/ch25_hebelarm}
-\include{chapters/ch26_simulierbarkeit}
-\include{chapters/ch27_cad_module}
+\include{chapters/ch08_komponenten}
+\include{chapters/ch09_pcb}
 
 % =============================================================
-% TEIL IX  --  Dokumentationsmethodik
+% TEIL IV  --  Software-Setup: VM, Linux, ROS 2
+% =============================================================
+\part{Software-Setup: VM, Linux, ROS\,2}
+
+\include{chapters/ch10_betriebssystem}
+\include{chapters/ch11_installation}
+
+% =============================================================
+% TEIL V  --  Simulation und der Weg vom CAD-Modell zur Realität
+% =============================================================
+\part{Simulation und der Weg vom CAD-Modell zur Realität}
+
+\include{chapters/ch12_simulationswerkzeuge}
+\include{chapters/ch13_sim_real_trennung}
+\include{chapters/ch14_cad_urdf}
+
+% =============================================================
+% TEIL VI  --  Einstiegsprojekte (Warm-up vor den vier Projekten)
+% =============================================================
+\part{Einstiegsprojekte: Erste Schritte mit ROS\,2, RViz und Gazebo}
+
+\include{chapters/ch14a_projekt0a_arm}
+\include{chapters/ch14b_projekt0b_stereo}
+
+% =============================================================
+% TEIL VII  --  Die vier Projekte: Architektur und rqt_graph
+%   Projekt 2 (ch16) enthält jetzt Mechanik, Kamera-Architektur und CAD/URDF
+%   des Tischtennisroboters (früher eigene Kapitel ch23--ch27).
+% =============================================================
+\part{Die vier Projekte: Architektur und \code{rqt\_graph}}
+
+\include{chapters/ch15_projekt1}
+\include{chapters/ch16_projekt2}
+\include{chapters/ch17_projekt3}
+\include{chapters/ch18_projekt4}
+
+% =============================================================
+% TEIL VIII  --  Dokumentationsmethodik
 % =============================================================
 \part{Dokumentationsmethodik}
 
