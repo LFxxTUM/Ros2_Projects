@@ -975,6 +975,162 @@ src/
    `- p0a_arm/reach_action_server.py # neu
 \end{lstlisting}
 
+\section{Implementierungs-Referenz: rclpy und Launch}
+Die \emph{Konzepte} -- was ein Topic, Service oder eine Action \emph{ist} --
+stehen in den Grundlagenkapiteln. Hier geht es um die \emph{Umsetzung}: welche
+\code{rclpy}-Funktionen man ruft und was sie tun. Projekte~0.A und 0.B legen
+dieses Handwerkszeug fest; die späteren Projekte setzen es voraus.
+
+\subsection{Das Knotengerüst}
+Jeder Python-Knoten erbt von \code{rclpy.node.Node}, wird nach \code{rclpy.init()}
+erzeugt und mit \code{rclpy.spin(node)} betrieben -- \code{spin} ist der
+Ereignis-Loop, der \emph{alle} Callbacks (Timer, Subscription, Service, Action)
+abarbeitet, bis Strg-C.
+\begin{lstlisting}[style=py,caption={Minimales Knotengerüst}]
+import rclpy
+from rclpy.node import Node
+
+class MyNode(Node):
+    def __init__(self):
+        super().__init__('my_node')    # eindeutiger Knotenname im Graphen
+
+def main():
+    rclpy.init()                        # ROS-Kontext starten
+    rclpy.spin(MyNode())                # blockiert, ruft Callbacks
+    rclpy.shutdown()
+\end{lstlisting}
+\noindent Tutorial: \href{https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Publisher-And-Subscriber.html}{docs.ros.org -- Publisher/Subscriber (Python)}.
+
+\subsection{\code{create\_publisher} -- senden}
+\code{self.create\_publisher(MsgType, '/topic', qos)} liefert ein Publisher-Objekt;
+\code{qos} ist meist die Queue-Tiefe (z.\,B.\ \code{10}). Gesendet wird mit
+\code{publisher.publish(msg)}, wobei \code{msg} eine Instanz des Nachrichtentyps ist.
+\begin{lstlisting}[style=py]
+self.pub = self.create_publisher(JointTrajectory,
+                                 '/arm_controller/joint_trajectory', 10)
+self.pub.publish(msg)   # msg: trajectory_msgs/JointTrajectory
+\end{lstlisting}
+
+\subsection{\code{create\_subscription} -- empfangen}
+\code{self.create\_subscription(MsgType, '/topic', callback, qos)}. Bei jeder
+eintreffenden Nachricht ruft ROS \code{callback(msg)} auf.
+\begin{lstlisting}[style=py]
+self.create_subscription(JointState, '/joint_states', self.on_joint_state, 10)
+
+def on_joint_state(self, msg):     # msg: sensor_msgs/JointState
+    for name, pos in zip(msg.name, msg.position):
+        self.joint_pos[name] = pos
+\end{lstlisting}
+
+\subsection{\code{create\_timer} -- periodisch handeln}
+\code{self.create\_timer(periode\_s, callback)} ruft \code{callback()} im festen
+Takt -- so publiziert \code{arm\_commander} alle 3\,s ein neues Ziel.
+
+\subsection{\code{create\_service} -- auf Anfragen antworten}
+\code{self.create\_service(SrvType, '/name', callback)}. Der Callback erhält
+\code{request} (Eingangsfelder) und ein bereits angelegtes \code{response}, das er
+füllt und zurückgibt.
+\begin{lstlisting}[style=py]
+self.create_service(SetNamedPose, '/arm/set_named_pose', self.on_request)
+
+def on_request(self, request, response):   # NICHT 'handle' nennen (Kollision)!
+    response.ok = True
+    response.message = f"ok: {request.name}"
+    return response
+\end{lstlisting}
+\noindent Tutorial: \href{https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Writing-A-Simple-Py-Service-And-Client.html}{docs.ros.org -- Service/Client (Python)}.
+
+\subsection{Interfaces definieren -- \code{srv} und \code{action}}
+Eine \code{.srv}-Datei hat zwei Teile (Request / Response), getrennt durch
+\code{---}; eine \code{.action} drei (Goal / Result / Feedback):
+\begin{lstlisting}[style=bash,caption={\code{SetNamedPose.srv}}]
+string name        # Request (Client -> Server)
+---
+bool ok            # Response (Server -> Client)
+string message
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={\code{ReachPoint.action}}]
+float64 x          # Goal: was der Client sendet  ->  "{x: 1.2, y: 0.4}"
+float64 y
+---
+bool success       # Result: Endergebnis
+float64 final_error
+---
+float64 distance_to_goal   # Feedback: laufender Zwischenstand
+\end{lstlisting}
+\noindent ROS generiert daraus die Python-Typen \code{ReachPoint.Goal},
+\code{ReachPoint.Result}, \code{ReachPoint.Feedback}. Das \textbf{Goal} sind genau
+die Felder vor dem ersten \code{---}. Tutorials:
+\href{https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Custom-ROS2-Interfaces.html}{Custom Interfaces},
+\href{https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Creating-an-Action.html}{Creating an Action}.
+
+\subsection{\code{ActionServer} -- langlaufende Aufträge umsetzen}
+\code{ActionServer(node, ActionType, '/name', execute\_callback=..., callback\_group=...)}.
+Der \code{execute\_callback(goal\_handle)} bearbeitet ein Ziel und nutzt:
+\begin{itemize}
+\item \code{goal\_handle.request} -- die Goal-Felder (hier \code{.x}, \code{.y}).
+\item \code{goal\_handle.publish\_feedback(fb)} -- Zwischenstand senden
+  (\code{fb = ReachPoint.Feedback()}).
+\item \code{goal\_handle.succeed()} bzw.\ \code{.abort()} -- Ausgang markieren.
+\item \code{return result} -- das \code{ReachPoint.Result()} an den Client.
+\end{itemize}
+\begin{lstlisting}[style=py,caption={Aufbau eines Action-Servers (vgl.\ Schritt 8)}]
+from rclpy.action import ActionServer
+ActionServer(self, ReachPoint, '/arm/reach_point',
+             execute_callback=self.execute, callback_group=cb)
+
+def execute(self, goal_handle):
+    target = (goal_handle.request.x, goal_handle.request.y)   # Goal lesen
+    fb = ReachPoint.Feedback()
+    fb.distance_to_goal = ...; goal_handle.publish_feedback(fb)
+    goal_handle.succeed()
+    res = ReachPoint.Result(); res.success = True
+    return res
+\end{lstlisting}
+\noindent Tutorial: \href{https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Writing-an-Action-Server-Client/Py.html}{docs.ros.org -- Action Server/Client (Python)}.
+
+\subsection{\code{ReentrantCallbackGroup} + \code{MultiThreadedExecutor}}
+Der \code{execute\_callback} blockiert (Feedback-Schleife). Mit dem
+\emph{Standard}-Executor läuft immer nur \emph{ein} Callback -- die
+\code{/joint\_states}-Subscription käme währenddessen nie dran, der Gelenkzustand
+bliebe eingefroren. Abhilfe: beide Callbacks in eine \textbf{ReentrantCallbackGroup}
+legen (dürfen nebenläufig/wiedereintretend laufen) und mit einem
+\textbf{MultiThreadedExecutor} (mehrere Threads) spinnen.
+\begin{lstlisting}[style=py]
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
+
+cb = ReentrantCallbackGroup()
+self.create_subscription(JointState, '/joint_states', self.on_js, 10,
+                         callback_group=cb)
+# ... ActionServer(..., callback_group=cb)
+ex = MultiThreadedExecutor(); ex.add_node(node); ex.spin()
+\end{lstlisting}
+\noindent Hintergrund: \href{https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Executors.html}{docs.ros.org -- About Executors}.
+
+\subsection{Aufbau einer Launch-Datei}
+Eine Launch-Datei ist Python: \code{generate\_launch\_description()} gibt eine
+\code{LaunchDescription} mit einer Liste von Aktionen zurück.
+\begin{itemize}
+\item \code{Node(package=..., executable=..., name=..., parameters=[\{\ldots\}],
+  arguments=[\ldots])} -- startet einen Knoten. \code{parameters} setzt
+  Knoten-Parameter (z.\,B.\ \code{\{'use\_sim\_time': True\}}); \code{arguments}
+  sind Programm-Argumente (z.\,B.\ \code{['-d', rviz\_config]}).
+\item \textbf{Substitutions} (erst beim Start aufgelöst):
+  \code{FindPackageShare('pkg')} liefert den \code{share}-Pfad;
+  \code{PathJoinSubstitution([\ldots])} setzt Pfade zusammen;
+  \code{Command(['xacro ', datei])} fügt die \emph{Ausgabe} eines Programms ein
+  (das erzeugte URDF); \code{ParameterValue(\ldots, value\_type=str)} typisiert
+  den Wert.
+\item \code{IncludeLaunchDescription(PythonLaunchDescriptionSource(<datei>),
+  launch\_arguments=\{\ldots\}.items())} -- eine \emph{fremde} Launch-Datei
+  einbinden (so starten wir Gazebo über \code{gz\_sim.launch.py}).
+\item \code{RegisterEventHandler(OnProcessExit(target\_action=A, on\_exit=[B]))}
+  -- B erst starten, wenn A fertig ist: so laufen Spawn $\rightarrow$
+  Broadcaster $\rightarrow$ Controller in der richtigen Reihenfolge.
+\end{itemize}
+\noindent Tutorials: \href{https://docs.ros.org/en/jazzy/Tutorials/Intermediate/Launch/Launch-Main.html}{docs.ros.org -- Launch}.
+
 \section{Häufige Fehler und Checkliste (Projekt 0.A)}
 \begin{warnbox}[title={Stolpersteine, die fast jeden treffen}]
 \begin{itemize}

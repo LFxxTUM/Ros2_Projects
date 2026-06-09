@@ -58,9 +58,15 @@ Parameter & HSV-Bereich (Ballfarbe) $\cdot$ Brennweite $f$, Basisbreite $B$,
 Erkennung und Triangulation bis zum Kalman-Tracker und der RViz-Darstellung.}
 \end{center}
 
-\screenshotplaceholder{p0b-rqtgraph}{Tatsächlicher \code{rqt\_graph}. Prüfe, ob
-\code{ball\_detector} beide Bild-Topics abonniert und der \code{ball\_tracker}
-seine Schätzung publiziert.}
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.95\textwidth]{{project_0.B/rqt_graph}.png}
+  \caption{Tatsächlicher \code{rqt\_graph} von Projekt~0.B: Die
+  \code{ros\_gz}-Bildbrücke speist \code{/stereo/left|right/image} in
+  \code{ball\_detector}, dieser publiziert \code{/ball/point}; \code{ball\_tracker}
+  erzeugt \code{/ball/estimate} und \code{/ball/prediction}, die \code{marker\_viz}
+  und (über \code{fov\_viz}) RViz darstellen.}
+  \label{fig:p0b-rqtgraph}
+\end{figure}
 
 \section{Schritt für Schritt}
 
@@ -158,9 +164,6 @@ ohne \code{/clock} stehen alle \code{use\_sim\_time}-Knoten ohne Uhr da.
 ros2 run ros_gz_image image_bridge /stereo/left/image /stereo/right/image
 ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock
 \end{lstlisting}
-\screenshotplaceholder{p0b-image-view}{\code{rqt\_image\_view} auf
-\code{/stereo/left/image}: bestätigt, dass die simulierte Kamera den Ball
-liefert, bevor erkannt wird.}
 
 \subsection{Schritt 3 -- Objekterkennung (OpenCV, HSV)}
 In beiden Bildern den Ball über seine Farbe finden und den Pixelmittelpunkt
@@ -176,8 +179,6 @@ def detect(self, img_msg):
     (u, v), r = cv2.minEnclosingCircle(max(cnts, key=cv2.contourArea))
     return (float(u), float(v)) if r >= 3.0 else None
 \end{lstlisting}
-\screenshotplaceholder{p0b-detection}{Kamerabild mit erkanntem Ball
-(Mittelpunkt/Kreis). Belegt, dass die HSV-Schwellen den Ball isolieren.}
 
 \subsection{Schritt 4 -- Triangulation und der vollständige Detektor}
 Bei achsparalleler Stereoanordnung ist die Disparität $d=|u_L-u_R|$; mit
@@ -317,9 +318,14 @@ der Ball wird nur verfolgt, solange er in \emph{beiden} sichtbar ist. Verlässt 
 das Bild, erkennt \code{ball\_detector} nichts mehr und die Marker bleiben auf der
 letzten Position stehen -- kein Fehler. Das schwarze Rig-Kästchen zeigt die
 Kameraposition in Gazebo.
-\screenshotplaceholder{p0b-rviz-markers}{RViz mit drei Markern: gemessene
-Ballposition (rot), Kalman-Schätzung (grün) und prädizierte Bahn (blau) -- der
-Filter glättet das Messrauschen und schätzt voraus.}
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.95\textwidth]{{project_0.B/step6_rviz_gazebo_terminal}.png}
+  \caption{Projekt~0.B in Betrieb: links Gazebo mit Stereo-Rig und Ball, rechts
+  RViz mit den Markern (gemessen rot, Kalman-Schätzung grün, Vorhersage blau) und
+  den beiden Kamerabildern; im Terminal die \code{/ball/point}-Ausgabe. Der Filter
+  glättet das Messrauschen und schätzt voraus.}
+  \label{fig:p0b-rviz-markers}
+\end{figure}
 \begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 6 (\# neu / \# angepasst)}]
 src/p0b_stereo/
 |- setup.py                  # angepasst: entry_points -> marker_viz, data_files
@@ -327,6 +333,111 @@ src/p0b_stereo/
 |- launch/stereo.launch.py   # neu (alles in einem Start)
 `- config/stereo.rviz        # neu (Fixed Frame, MarkerArray, Image)
 \end{lstlisting}
+
+\section{Implementierungs-Referenz: Parameter und Synchronisation}
+Die rclpy-Grundlagen (Publisher, Subscription, Service, Launch) stehen in der
+Referenz von Projekt~0.A. In 0.B kommen zwei neue Bausteine dazu.
+
+\subsection{Parameter -- \code{declare\_parameter} / \code{get\_parameter}}
+Statt Werte (HSV-Bereich, Basisbreite, Brennweite) fest zu verdrahten, deklariert
+man sie als \emph{Parameter}: so sind sie beim Start oder zur Laufzeit änderbar,
+ohne den Code anzufassen.
+\begin{lstlisting}[style=py]
+self.declare_parameter('baseline', 0.10)        # Name + Default(-typ)
+B = self.get_parameter('baseline').value        # Wert auslesen
+\end{lstlisting}
+\noindent Gesetzt wird z.\,B.\ in der Launch-Datei
+(\code{parameters=[\{'baseline': 0.12\}]}) oder per CLI
+(\code{--ros-args -p baseline:=0.12}). Tutorial:
+\href{https://docs.ros.org/en/jazzy/Tutorials/Beginner-Client-Libraries/Using-Parameters-In-A-Class-Python.html}{docs.ros.org -- Parameters in a Class (Python)}.
+
+\subsection{Zwei Topics zeitlich koppeln -- \code{message\_filters}}
+Die Triangulation braucht das linke \emph{und} rechte Bild \emph{desselben}
+Moments. Ein gewöhnliches \code{create\_subscription} pro Kamera liefert die
+Bilder unabhängig -- man wüsste nicht, welche zusammengehören. Der
+\code{ApproximateTimeSynchronizer} verknüpft beide Subscriptions und ruft den
+Callback erst, wenn ein zeitlich passendes \emph{Paar} vorliegt:
+\begin{lstlisting}[style=py]
+from message_filters import Subscriber, ApproximateTimeSynchronizer
+left  = Subscriber(self, Image, '/stereo/left/image')
+right = Subscriber(self, Image, '/stereo/right/image')
+sync = ApproximateTimeSynchronizer([left, right], queue_size=10, slop=0.05)
+sync.registerCallback(self.on_pair)   # on_pair(left_msg, right_msg)
+\end{lstlisting}
+\noindent \code{slop} ist die maximal erlaubte Zeitdifferenz (s) zwischen den
+beiden Zeitstempeln. Doku:
+\href{https://docs.ros.org/en/jazzy/p/message_filters/}{docs.ros.org -- message\_filters}.
+
+\section{Sichtfeld visualisieren und Sim-to-Real}
+
+\subsection{Wie das Sichtfeld definiert ist}
+Jede Kamera in der SDF hat \code{<horizontal\_fov>} (horizontaler Öffnungswinkel)
+und \code{<image><width/height>}. Daraus folgt die gesamte Abbildungsgeometrie:
+\begin{itemize}
+\item \textbf{Brennweite (Pixel):} $f=\dfrac{w/2}{\tan(\text{hfov}/2)}$ -- genau die
+  Größe, die \code{ball\_detector} zur Triangulation berechnet
+  ($640\,$px, $60^\circ \Rightarrow f\approx 554$).
+\item \textbf{Vertikaler Öffnungswinkel} über das Seitenverhältnis:
+  $\text{vfov}=2\arctan\!\big(\tan(\text{hfov}/2)\cdot h/w\big)$.
+\item \textbf{Hauptpunkt} $(c_x,c_y)=(w/2,\,h/2)$ -- ideale Kamera, ohne Verzeichnung.
+\end{itemize}
+Bisher \emph{sehen} wir das Sichtfeld nur indirekt über die beiden Kamerabilder.
+
+\subsection{Das Frustum als Pyramide zeigen (\code{fov\_viz})}
+Der Knoten \code{fov\_viz} macht das Sichtfeld im 3D sichtbar: pro Kamera eine
+Pyramide (Apex am Kamerazentrum, Grundfläche auf der Fernebene) als
+\code{LINE\_LIST}-Marker auf \code{/stereo/fov\_markers}. Die Ecken folgen direkt
+aus hfov, Seitenverhältnis und Reichweite:
+\begin{lstlisting}[style=py,caption={\code{fov\_viz.py} (Kern der Frustum-Berechnung)}]
+tan_h = np.tan(hfov/2.0); tan_v = tan_h * h/w          # Halbwinkel
+X, Y = far*tan_h, far*tan_v                            # halbe Fernflaeche
+corners = [Point(x=apex_x + sx*X, y=sy*Y, z=far)       # optisch: x rechts, y unten
+           for sx, sy in [(-1,-1), (1,-1), (1,1), (-1,1)]]
+# LINE_LIST: Apex->4 Ecken + Fernrechteck; linke Kamera apex_x=0, rechte apex_x=B
+\end{lstlisting}
+\noindent In RViz erscheinen zwei überlappende Pyramiden (grün = links, blau =
+rechts). Ihr \emph{Schnittvolumen} ist der Bereich, in dem \emph{beide} Kameras
+den Ball sehen -- nur dort kann trianguliert werden. \code{fov\_viz} ist in
+\code{stereo.launch.py} enthalten und als \emph{CameraFOV}-Display in
+\code{stereo.rviz} eingebunden.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta (\# neu / \# angepasst)}]
+src/p0b_stereo/
+|- p0b_stereo/fov_viz.py     # neu (Frustum-Marker beider Kameras)
+|- setup.py                  # angepasst: entry_points -> fov_viz
+|- launch/stereo.launch.py   # angepasst: fov_viz gestartet
+`- config/stereo.rviz        # angepasst: CameraFOV- + RightImage-Display
+\end{lstlisting}
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.95\textwidth]{{project_0.B/field_of_view}.png}
+  \caption{Die von \code{fov\_viz} gezeichneten Sichtfeld-Pyramiden beider Kameras
+  in RViz (grün = links, blau = rechts). Das Überlappungsvolumen ist der Bereich,
+  in dem \emph{beide} Kameras den Ball sehen -- nur dort liefert die Triangulation
+  eine 3D-Position.}
+  \label{fig:p0b-fov}
+\end{figure}
+Damit das in Simulation Entwickelte später auf einer echten USB-Stereokamera
+(z.\,B.\ einem ELP-Dual-Lens-Modul mit Global-Shutter) läuft, gleicht man drei
+Größen mit dem realen Gerät ab -- dann teilen Sim und Realität dieselbe Geometrie:
+\begin{enumerate}
+\item \textbf{Öffnungswinkel/Brennweite:} \code{<horizontal\_fov>} auf den Wert des
+  realen Objektivs setzen (Datenblatt oder Kalibrierung,
+  Kapitel~\ref{ch:kalibrierung}) -- damit stimmt $f$.
+\item \textbf{Auflösung:} \code{<image><width/height>} auf die reale
+  Sensorauflösung pro Auge.
+\item \textbf{Basisbreite $B$:} den Kameraabstand in der SDF (\code{<pose>}) und
+  den \code{baseline}-Parameter auf den realen Linsenabstand des Moduls.
+\end{enumerate}
+\begin{infobox}[title=Was die Simulation (noch) nicht abbildet]
+Reale Module haben \textbf{Linsenverzeichnung}: Gazebo kann sie über
+\code{<distortion>} (Brown-Conrady $k_1,k_2,\ldots$) nachbilden -- sauberer ist,
+\emph{beide} Seiten zu kalibrieren und die Bilder zu entzerren
+(Kapitel~\ref{ch:kalibrierung}). Ein \textbf{Global-Shutter} (wie beim genannten
+Modul) passt gut zum einfachen Pinhole-Modell; ein Rolling-Shutter erzeugt bei
+schnellen Bällen Schräglagen, die wir hier nicht simulieren. Auch reale
+Belichtung und Bildrauschen fehlen -- die HSV-Schwellen müssen am Ende an echten
+Bildern nachjustiert werden.
+\end{infobox}
 
 \section{Häufige Fehler und Checkliste (Projekt 0.B)}
 \begin{warnbox}[title={Stolpersteine -- vieles aus 0.A übertragbar}]
