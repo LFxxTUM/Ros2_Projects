@@ -1427,6 +1427,31 @@ Streuung über das hier Erreichte hinaus weiter senken:
   etwas nach hinten legen -- weniger Open-Loop-Extrapolation, kleinerer Randfehler.
 \end{itemize}
 
+\paragraph{Austauschbare Schätzermodelle (Architektur).} Mehrere dieser Ansätze
+sind eigentlich \emph{alternative Schätzer} auf denselben Eingangsdaten. Das lässt
+sich sauber als \textbf{austauschbare Architektur} bauen, ohne die übrige Pipeline
+anzufassen: Der Tracker-Knoten konsumiert \code{/ball/point} und veröffentlicht
+\code{/ball/estimate}, \code{/ball/prediction}, \code{/ball/intercept} usw. -- jeder
+Schätzer mit \emph{derselben} Schnittstelle ist ein Drop-in. Hinter einer
+gemeinsamen Strategie-Schnittstelle (\code{reset()}, \code{add(z,t)},
+Zustand~\code{x}) ließen sich verschiedene Modelle kapseln; ein
+Parameter~\code{model} wählt das aktive Modell -- per \textbf{Launch-Argument}
+(\code{estimator:=ekf}) oder zur Laufzeit (\code{ros2 param set /flight\_ekf model
+batch}). Die gemeinsame Logik (TF, Einfrieren an der Mitte, Auftreffpunkt/-zeit,
+Reichweite, Klassifikation) bliebe ungeteilt. So sind Modelle \emph{auf identischen
+Eingaben} direkt vergleichbar, z.\,B.:
+\begin{itemize}
+\item \code{ekf} -- der hier umgesetzte rekursive EKF (Schritt~4).
+\item \code{batch} -- ein \textbf{parametrischer Fit der ganzen Bahn}: der Flug ist
+  eine Parabel mit Luftwiderstand mit wenigen Parametern ($\mathbf r_0,\mathbf v_0$).
+  Ein überbestimmter, mit dem Stereo-Rauschmodell gewichteter Least-Squares-/
+  Gauss-Newton-Fit ist robuster gegen einzelne Ausreißer als die rekursive
+  Punkt-für-Punkt-Schätzung.
+\end{itemize}
+\noindent So ließe sich etwa der EKF gegen den Batch-Fit auf demselben Wurf
+benchmarken (Streuung, Rechenlast), ohne den restlichen Stack zu ändern -- eine
+naheliegende nächste Ausbaustufe.
+
 \begin{infobox}[title={Lehren -- Stereo-Tracking}]
 (1)~Tiefe ist der schwache Freiheitsgrad: Fehler $\propto Z^2/(f\,B)$. (2)~Das
 Messrauschen \emph{ehrlich} (anisotrop, entfernungsabhängig) modellieren, sonst
