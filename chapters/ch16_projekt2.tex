@@ -1155,6 +1155,154 @@ Aufprall erneut eigene Seite $\rightarrow$ Fehlschuss; Aufschlag ins Netz
 $\rightarrow$ Fehlschuss (Netztreffer); gültiger Ballwechsel (ein Aufprall
 Roboterseite) $\rightarrow$ kein Fehlschuss.
 
+\subsection{Genauigkeit der Flugschätzung: Messrauschen, Kamerastandort, FPS}
+\label{sec:ekf-genauigkeit}
+Beim Testen fiel zweierlei auf: der eingefrorene Auftreffpunkt lag \emph{mal sehr
+genau, mal deutlich daneben} (hohe Streuung), und es gab nur \emph{5--10}
+Korrekturschritte bis zur Tischmitte. Die Ursachenanalyse -- offline per
+Monte-Carlo (300 Würfe je Konfiguration, gleiches Drag-Modell, realistisches
+Stereo-Rauschmodell) -- lieferte mehrere lehrreiche Erkenntnisse. Sie sind
+typisch für Stereo-Tracking und deshalb hier festgehalten.
+
+\paragraph{Erstens: die Bildrate war 30\,Hz, nicht mehr.} Die Kameras standen auf
+\code{<update\_rate>30</update\_rate>}. Der Ball braucht von der Gegner-Grundlinie
+bis zur Tischmitte ($y=0$) rund $0{,}3\,$s -- bei 30\,Hz sind das eben nur
+$\sim$9 Frames, minus zwei für die Initialisierung. Die 5--10 Korrekturen waren
+also \emph{korrekt}, kein Fehler. Die Korrekturzahl ist durch
+\emph{Bildrate~$\times$~Flugzeit} begrenzt, \textbf{nicht} durch Rechenlast oder
+Terminal-Logging (beides ist hier vernachlässigbar; eine Umleitung des Loggings in
+eine Datei ändert nichts an Genauigkeit oder Frame-Zahl).
+
+\paragraph{Zweitens: das Tiefenrauschen der Triangulation dominiert.} Stereo misst
+\emph{Tiefe} (Entfernung entlang der Blickachse) über die Disparität -- mit einem
+Fehler, der \textbf{quadratisch mit der Entfernung} wächst und mit der
+\emph{Basisbreite} sinkt:
+\begin{equation}
+\sigma_{\text{lat}} = \frac{\sigma_{\text{px}}}{f}\,Z, \qquad
+\sigma_{\text{tiefe}} = \frac{\sqrt{2}\,\sigma_{\text{px}}}{f\,B}\,Z^2,
+\end{equation}
+mit Brennweite $f$ (aus FOV und Bildbreite, hier $\approx554\,$px),
+Pixelrauschen $\sigma_{\text{px}}$, Basisbreite $B$ und Entfernung $Z$. Bei
+$B=0{,}10\,$m und $Z\approx3{,}2\,$m (Ball an der Gegner-Grundlinie, Kamera
+hinter dem Roboter) ist das verheerend:
+\begin{center}\small
+\begin{tabular}{lcc}
+\toprule
+ & lateral ($x,z$) & \textbf{Tiefe (Blickachse)} \\
+\midrule
+$Z=3{,}2\,$m, $B=0{,}10\,$m & $2{,}9\,$mm & $\mathbf{131\,}$\textbf{mm} \\
+$Z=3{,}2\,$m, $B=0{,}30\,$m & $2{,}9\,$mm & $44\,$mm \\
+$Z=1{,}9\,$m, $B=0{,}10\,$m & $1{,}7\,$mm & $46\,$mm \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent Die rohe Tiefenmessung schwankt also um \textbf{$\pm13\,$cm} -- das ist
+direkt das beobachtete „mal genau, mal daneben''. Der EKF nahm bisher ein
+\emph{skalares} $R=(5\,\text{mm})^2$ an und vertraute der verrauschten Tiefe damit
+$\sim$25-fach zu stark.
+
+\paragraph{Drittens: mehr FPS allein ist nicht „gratis''.} Naiv die Bildrate zu
+erhöhen, \emph{ohne} $R$ zu korrigieren, macht es \textbf{schlechter}: Das Filter
+verfolgt mit mehr Messungen nur das Tiefenrauschen genauer. Im Monte-Carlo stieg
+die Streuung des Auftreffpunkts von $\sigma\approx5{,}7\,$cm (30\,Hz) auf
+$9{,}3\,$cm (120\,Hz, skalares $R$). Zudem verschlechtert sich der
+Geschwindigkeits-Init aus zwei Frames bei hoher FPS, weil der Zeitabstand
+schrumpft ($\sigma_v\propto1/\Delta t$).
+
+\paragraph{Drei Korrekturen am Schätzer.} Daraus folgen drei gezielte Eingriffe in
+\code{flight\_ekf} (rein softwareseitig, keine Hardware-Änderung):
+\begin{enumerate}
+\item \textbf{Entfernungs- und richtungsabhängiges $R$:} groß entlang der
+  Blickachse $\mathbf d$ (Kamera$\rightarrow$Ball), klein quer dazu,
+  $R=\sigma_{\text{tiefe}}^2\,\mathbf d\mathbf d^\top
+   +\sigma_{\text{lat}}^2(I-\mathbf d\mathbf d^\top)$. Die Kamerapose kommt per TF.
+\item \textbf{Prozessrauschen $Q\propto\Delta t$} (pro Sekunde statt pro Schritt) --
+  so injiziert eine höhere FPS nicht mehr Rauschen pro Zeit; die Schätzung wird
+  \emph{FPS-unabhängig}.
+\item \textbf{Geschwindigkeits-Init über ein festes Zeitfenster} (z.\,B.\
+  $0{,}05\,$s) statt aus zwei aufeinanderfolgenden Frames -- entkoppelt die
+  Init-Güte von der Bildrate.
+\end{enumerate}
+\begin{lstlisting}[style=py,caption={\code{flight\_ekf} -- entfernungsabhängiges $R$ und $Q\propto\Delta t$}]
+def _meas_R(self, z):                      # z: Messung im Welt-Frame
+    if self.cam_pos is None: return self.R    # Fallback (skalar)
+    r = z - self.cam_pos; Z = norm(r); d = r/Z
+    sig_lat = (self.pix/self.focal)*Z          # quer zur Blickachse
+    sig_dep = (sqrt(2)*self.pix/(self.focal*self.baseline))*Z*Z  # entlang Blickachse
+    return sig_lat**2*(I - outer(d,d)) + sig_dep**2*outer(d,d)
+
+def ekf_step(self, z, dt, R):
+    F = self._F(self.x, dt); self.x = self._f(self.x, dt)
+    self.P = F @ self.P @ F.T + self.Q_rate * dt   # Q pro Sekunde -> *dt
+    S = self.P[:3,:3] + R; K = self.P[:,:3] @ inv(S)
+    self.x = self.x + K @ (z - self.x[:3]); self.P = (I - K@H) @ self.P
+\end{lstlisting}
+\noindent Wirkung (Monte-Carlo der echten Implementierung, hinten montiert,
+$B=0{,}10\,$m): die \emph{Streuung} des Auftreffpunkts sinkt und ist nun über die
+Bildrate \emph{stabil}.
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+ & median & $\sigma$ (Streuung) & p90 \\
+\midrule
+vorher (30\,Hz, skalares $R$)        & $4{,}3\,$cm & $5{,}7\,$cm & $11{,}1\,$cm \\
+neu, 30\,Hz                          & $5{,}2\,$cm & $\mathbf{2{,}1\,}$\textbf{cm} & $8{,}0\,$cm \\
+\textbf{neu, 60\,Hz} (eingestellt)   & $4{,}7\,$cm & $\mathbf{2{,}6\,}$\textbf{cm} & $8{,}2\,$cm \\
+neu, 120\,Hz                         & $4{,}0\,$cm & $2{,}4\,$cm & $7{,}7\,$cm \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent Die Bildrate wurde auf \textbf{60\,Hz} gesetzt -- mehr Korrekturen
+(jetzt $\sim$17 bis zur Mitte) bei stabiler Streuung. Wichtig: Die
+Sensor-Rate gilt in \emph{Simulationszeit}; kann der Renderer 60\,Hz nicht in
+Echtzeit liefern, sinkt der Real-Time-Factor, die Frame-\emph{Zahl} pro
+Flug bleibt aber erhalten. Gazebo muss dafür nicht weiter angepasst werden.
+
+\paragraph{Kamerastandort: hinten, seitlich oder beim Spieler?} Naheliegend wäre,
+die Kamera \emph{seitlich} zu stellen (der Ball flöge dann quer zur Blickachse,
+die Hauptbewegung $y$ würde lateral und damit mm-genau gemessen) oder \emph{näher
+zum Spieler} (frühe Schätzungen näher $\rightarrow$ bessere Tiefe am Anfang). Beide
+Ideen haben wir durchgerechnet -- und beide bringen \textbf{nichts} bzw.\
+verschlechtern:
+\begin{itemize}
+\item \textbf{Seitlich} ($\sigma\approx20\,$cm statt $\approx4\,$cm hinten):
+  schlechter! Denn der gesuchte Auftreffpunkt liegt auf einer \emph{festen}
+  Ebene $y=y_R$; ausgegeben werden seine Koordinaten $x^\ast,z^\ast$. Steht die
+  Kamera seitlich, wird ausgerechnet $x^\ast$ (die Quer-zur-Platte-Position) zur
+  \emph{Tiefe} und damit grob verrauscht.
+\item \textbf{Hinter dem Spieler} ($\sigma\approx5\,$cm, praktisch wie hinten):
+  Die frühen Schätzungen werden zwar genauer (Ball nah), aber der Zustand
+  \emph{an der Tischmitte} -- wo eingefroren wird -- ist wieder $\sim$2\,m
+  entfernt; die Geometrie zur Abfangebene bleibt gleich. Dazu stünde die Kamera
+  dort, wo der Spieler steht und aufschlägt (Verdeckung).
+\item \textbf{Hinter dem Roboter (aktuell):} am besten. \emph{Beide}
+  Ausgabe-Koordinaten $x^\ast,z^\ast$ sind die gut aufgelösten Lateralachsen; die
+  schwache Tiefenachse ($y$) wird durch die Auswertung auf der festen Ebene
+  $y=y_R$ weitgehend „absorbiert''.
+\end{itemize}
+\noindent Fazit: \textbf{Die Kamera bleibt hinter dem Roboter.} Der große Hebel war
+nicht der Standort und auch nicht die Basisbreite (die bei ehrlichem $R$ kaum noch
+etwas bringt: $B{=}0{,}10$ vs.\ $0{,}30\,$m liegt im Rauschen), sondern das
+\emph{Messrauschmodell} und $Q\propto\Delta t$. Eine zweite Stereo-Kamera zum
+Tiefenabgleich wäre die saubere Lösung gegen das Tiefenrauschen, scheidet hier
+aber aus Budgetgründen aus.
+
+\begin{infobox}[title={Lehren -- Stereo-Tracking}]
+(1)~Tiefe ist der schwache Freiheitsgrad: Fehler $\propto Z^2/(f\,B)$. (2)~Das
+Messrauschen \emph{ehrlich} (anisotrop, entfernungsabhängig) modellieren, sonst
+überschätzt der EKF die Tiefe. (3)~$Q$ pro \emph{Sekunde} ansetzen ($\cdot\Delta t$),
+damit FPS-Änderungen das Filter nicht verstimmen. (4)~Mehr FPS hilft nur \emph{mit}
+korrektem $R$. (5)~Den Standort an der Frage festmachen, \emph{welche} Koordinaten
+gebraucht werden -- hier liegen sie quer zur Tiefe, also gehört die Kamera hinter
+den Roboter.
+\end{infobox}
+
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta dieser Verfeinerung (\# angepasst)}]
+src/p2_tabletennis/
+|- worlds/tabletennis.sdf            # angepasst: Kameras 30 -> 60 Hz
+`- p2_tabletennis/flight_ekf.py      # angepasst: R entfernungsabh., Q*dt, Fenster-Init
+\end{lstlisting}
+
 \subsection{Schritt 6 -- Roboteranbindung}
 \emph{[Dokumentation folgt.]} Frühe Abfangbewegung (iterative Verfeinerung),
 inverse Kinematik des Portals und Motorsteuerung über den
