@@ -624,6 +624,65 @@ kartesischen Zielposition, die Armgelenke für den Schlägerwinkel. Der
 derselbe \code{ros2\_control}-Stack wie in Projekt~0.A und Projekt~1. Hier zählt
 das \textbf{Timing}: in der Simulation trivial, real der kritische Faktor.
 
+\subsubsection{Regelstrategie: entkoppelte Achsregelung statt MIMO}
+Das Szenario wirkt komplex, lässt sich aber \textbf{entkoppeln}. Das Portal
+(Gantry) hat mechanisch nahezu orthogonale, unabhängige Achsen $x$ und $z$ (und
+optional $y$). Jede Achse bekommt daher einen \emph{eigenen} Regler --
+\textbf{SISO-PID}, in der Praxis als Kaskade aus Positions- und
+Geschwindigkeitsschleife -- statt einer gekoppelten MIMO-Regelung. Die
+Querkopplung (etwa die Trägheit des bewegten Arms auf die Portalachse) ist klein
+und wird als Störgröße ausgeregelt; bei Bedarf hilft eine \textbf{Vorsteuerung}
+(Feedforward) aus dem bekannten Soll-Bahnprofil. So zerfällt das Problem in drei
+lose gekoppelte Teile:
+\begin{enumerate}
+\item \textbf{Grobpositionierung} (Portal $x,z$): große, ruhige Bewegung in die
+  Abfangregion -- entkoppelte PID je Achse.
+\item \textbf{Schlägerorientierung} (Armgelenke): Vor-/Rückhandstellung und
+  Anstellwinkel des Schlägers.
+\item \textbf{Schlag} (getaktete Schwungbewegung): kurz, schnell, auf den
+  Auftreffzeitpunkt $t^\ast$ getriggert.
+\end{enumerate}
+Positionierung und Schlag werden auch \emph{zeitlich} getrennt: erst früh und ruhig
+positionieren, dann im richtigen Moment schlagen. Das entkoppelt die langsame,
+genaue Anfahrt von der schnellen, getakteten Schlagbewegung -- beide müssen nicht
+im selben Regelkreis gelöst werden.
+
+\subsubsection{Schläger-Reichweite: Position grob, Schlag fein}
+Der Roboter muss \emph{nicht} exakt auf den geschätzten Auftreffpunkt fahren. Der
+Schläger sitzt am Ende eines \textbf{Schlagarms}, der einen Arbeitsraum aufspannt --
+der Ball ist treffbar, sobald er \emph{irgendwo} in diesem Arbeitsraum liegt. Zwei
+Konsequenzen: (1)~Die Positionier-Toleranz wächst um die Schläger-/Armreichweite;
+ein EKF-Restfehler von wenigen Zentimetern (Kap.~\ref{sec:ekf-genauigkeit}) liegt
+klar darunter. (2)~Der Arm wird so ausgelegt, dass \textbf{Vorhand und Rückhand}
+spielbar sind. Das vergrößert die seitliche Reichweite um die Portalposition und
+\emph{verkürzt die nötige Reaktionszeit}: statt das Portal weit zur Ballseite zu
+fahren, genügt oft ein Armschwung auf die entsprechende Seite. Vor- oder Rückhand
+folgt aus der Lage des Abfangpunkts relativ zur Portalposition.
+
+\subsubsection{Inverse Kinematik bei laufendem EKF-Update}
+Da der EKF den Abfangpunkt mit jeder Messung aktualisiert (bis zur Tischmitte,
+Kap.~\ref{sec:ekf-genauigkeit}), stellt sich die Frage, ob eine \emph{Neuberechnung
+der inversen Kinematik pro Update} performant ist. Antwort: \textbf{ja,
+problemlos} -- weil die Kinematik hier einfach ist. Für das Portal ist die IK
+\emph{trivial}: die kartesischen Ziele $x,z$ \emph{sind} (bis auf Offsets) direkt
+die prismatischen Achswerte, keine Iteration. Die wenigen Armgelenke für den
+Schlägerwinkel haben eine \emph{geschlossene} (oder niederdimensional-numerische)
+Lösung. Eine IK-Auswertung kostet so Mikrosekunden -- bei 60\,Hz EKF-Updates völlig
+unkritisch. Das ist der Vorteil des Portalkonzepts gegenüber einem redundanten
+6-DOF-Arm, dessen mehrdeutige, iterative IK eine ständige Neuberechnung teurer
+machte.
+
+\subsubsection{Auftreffzeitpunkt, Timing und Balltypen}
+Für den Schlag genügt der Auftreff\emph{punkt} nicht -- es braucht auch den
+Auftreff\emph{zeitpunkt} $t^\ast$, um den Schwung so zu takten, dass der Schläger
+den Ball zum richtigen Moment am richtigen Ort trifft. $t^\ast$ fällt im EKF ohnehin
+an (Kap.~\ref{sec:schritt6-zeit}). Entscheidend ist die \textbf{Spreizung der
+Reaktionszeiten}: ein langsamer, hoher Bogen gibt viel Zeit (Bahn lange
+verfeinerbar, später Schlag), ein schneller, flacher Ball wenig. Bei knappem
+Zeitfenster \emph{committet} der Roboter früh bzw.\ schlägt direkt, statt die
+Schätzung weiter zu verfeinern -- daher die Ball-Klassifikation in
+Kap.~\ref{sec:schritt6-zeit}.
+
 % =============================================================
 \section{Umsetzung}
 Hier folgen die konkreten Implementierungsschritte -- jeder für sich lauffähig,
@@ -1036,13 +1095,22 @@ meldet jeden Schlag auf \code{/opponent/event}, womit der Schiedsrichter seine
 Zustandsmaschine zurücksetzt. Die Aufschlagparameter sind so gewählt (offline
 geprüft), dass der Ball zuerst auf der eigenen Seite ($y\approx+0{,}5$), dann über
 das Netz ($z\approx0{,}97>0{,}9125$) auf die Roboterseite ($y\approx-0{,}5$) springt.
-\begin{lstlisting}[style=py,caption={\code{opponent\_serve} -- Modus wählen und Schiedsrichter informieren}]
+
+\paragraph{Realistisches Spielermodell.} Ein echter Spieler steht \emph{nicht}
+immer mittig und schlägt \emph{nicht} immer geradeaus. Statt eines festen Azimuts
+zieht jeder Schlag daher eine \textbf{seitliche Spielerposition} $x_{\text{start}}$
+und einen \textbf{Zielpunkt} $x_{\text{Ziel}}$ auf der Robotertischhälfte; die
+horizontale Richtung folgt aus der Geometrie. So landen die Bälle auf dem Tisch,
+kommen aber aus wechselnden Winkeln -- auch sehr schräg. Offline geprüft (Spieler
+$\pm0{,}5\,$m, Ziel $\pm0{,}7\,$m): 100\,\% gültige Schläge, Auftreffpunkt streut
+bis $\sim\!\pm1{,}25\,$m.
+\begin{lstlisting}[style=py,caption={\code{opponent\_serve} -- Spielermodell (Position + Ziel) und Schiedsrichter}]
 def _launch(self, mode):
-    if mode == 'serve':   # 1. Aufprall eigene Seite, dann ueber Netz
-        s, speed, az, el = self.serve_start, 3.0, -1.5708, 0.0873
-    else:                 # Ballwechsel: direkt ueber Netz auf Roboterseite
-        s, speed, az, el = self.start, 4.5, -1.5708, 0.10
-    self.pos = [float(s[0]), float(s[1]), float(s[2])]
+    s, speed, el = self._mode_params(mode)       # serve: 3.0/5deg, rally: 4.5/6deg
+    start_x  = s[0] + uniform(-self.start_x_spread,  self.start_x_spread)   # Spielerpos.
+    target_x =        uniform(-self.target_x_spread, self.target_x_spread)  # Zielpunkt
+    az = atan2(self.aim_y - s[1], target_x - start_x)   # Richtung Start->Ziel
+    self.pos = [start_x, s[1], s[2]]
     self.vel = [speed*cos(el)*cos(az), speed*cos(el)*sin(az), speed*sin(el)]
     self.event_pub.publish(String(data=mode))   # Schiedsrichter zuruecksetzen
 \end{lstlisting}
@@ -1083,7 +1151,13 @@ def _on_bounce(self, side):
 
 \paragraph{Begrenzungswand und Auftreffpunkt in Gazebo.} Die Wand ist als
 \emph{durchsichtiges, kollisionsfreies} Box-Visual am Plattenrand ($y=-1{,}30$,
-der Abfangebene) in die Welt eingebaut -- der Ball fliegt hindurch. Da Gazebo zur
+der Abfangebene) in die Welt eingebaut -- der Ball fliegt hindurch. Ihre Breite
+($2{,}93\,$m) ist die \textbf{Reichweite des Roboters}: Tischbreite ($1{,}525\,$m)
+plus je $0{,}70\,$m seitlich (realistisches Amateurspiel), also $x\in[-1{,}46,
++1{,}46]\,$m -- so sind auch sehr schräge Bälle abfangbar. Sagt der EKF einen
+Auftreffpunkt \emph{außerhalb} dieser Reichweite voraus, gilt der Ball als nicht
+erreichbar (kein Abfang-Marker, vgl.\ 26.2.1.5: Abfangposition außerhalb des
+Arbeitsraums). Da Gazebo zur
 Laufzeit kein bequemes Umfärben über ROS erlaubt, nutzt der Schiedsrichter einen
 Trick \emph{ohne} Materialeingriff: Es gibt \emph{zwei} Wände -- eine grüne
 (\code{wall\_ok}) und eine rote (\code{wall\_fault}, sonst unter dem Boden
@@ -1139,6 +1213,15 @@ EKF-Auftreffpunkt; der reale Ball durchbricht die Wand daneben -- die Differenz 
 die Modellgüte. Bei einem ungültigen Aufschlag (z.\,B.\ \code{/opponent/serve} mit
 einem Ballwechsel-artigen Wurf, oder ein Ball ins Netz) färbt sich die Wand rot,
 beim nächsten Schlag wieder grün.
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.85\textwidth]{project_2/step5_simulation.png}
+  \caption{Schritt~5 in Gazebo: die durchsichtige Begrenzungswand am Plattenrand
+  der Roboterseite (Breite = Reichweite, Tisch\,$\pm0{,}70\,$m) mit dem vom EKF
+  geschätzten Auftreffpunkt als Scheibe. Der reale Ball durchbricht die Wand --
+  die Abweichung zur Scheibe ist die Modellgüte; ein Fehlschuss färbt die Wand rot.}
+  \label{fig:p2-step5}
+\end{figure}
 \begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 5 (\# neu / \# angepasst)}]
 src/p2_tabletennis/
 |- p2_tabletennis/match_referee.py   # neu (Regeln + Fehlschuss + Wand-Visualisierung)
@@ -1256,7 +1339,17 @@ neu, 120\,Hz                         & $4{,}0\,$cm & $2{,}4\,$cm & $7{,}7\,$cm \
 (jetzt $\sim$17 bis zur Mitte) bei stabiler Streuung. Wichtig: Die
 Sensor-Rate gilt in \emph{Simulationszeit}; kann der Renderer 60\,Hz nicht in
 Echtzeit liefern, sinkt der Real-Time-Factor, die Frame-\emph{Zahl} pro
-Flug bleibt aber erhalten. Gazebo muss dafür nicht weiter angepasst werden.
+Flug bleibt aber erhalten. Gazebo muss dafür nicht weiter angepasst werden. Die
+Bildrate steckt allein in den zwei \code{<update\_rate>}-Zeilen der Welt-SDF
+(beide Kameras); umschalten ohne weitere Code-Änderung (der EKF ist
+FPS-unabhängig):
+\begin{lstlisting}[style=bash,caption={FPS umschalten (30 / 60 / 120 Hz)}]
+cd ~/ros2_ws
+# beide Vorkommen ersetzen, z.B. auf 120 Hz:
+sed -i 's|<update_rate>[0-9]*</update_rate>|<update_rate>120</update_rate>|g' \
+  src/p2_tabletennis/worlds/tabletennis.sdf
+colcon build --packages-select p2_tabletennis
+\end{lstlisting}
 
 \paragraph{Kamerastandort: hinten, seitlich oder beim Spieler?} Naheliegend wäre,
 die Kamera \emph{seitlich} zu stellen (der Ball flöge dann quer zur Blickachse,
@@ -1287,6 +1380,53 @@ etwas bringt: $B{=}0{,}10$ vs.\ $0{,}30\,$m liegt im Rauschen), sondern das
 Tiefenabgleich wäre die saubere Lösung gegen das Tiefenrauschen, scheidet hier
 aber aus Budgetgründen aus.
 
+\paragraph{Sieht die Kamera die breite Reichweite noch?} Mit der verbreiterten
+Reichweite ($x$ bis $\pm1{,}46\,$m) und dem seitlich spielenden Gegner liegt die
+Sorge nahe, die hintere Kamera müsse \emph{weiter nach hinten}, um die Ränder noch
+aufzulösen. Die Simulation (4000 Schläge, Spieler $\pm0{,}5\,$m, Ziel $\pm0{,}7\,$m)
+zeigt: \textbf{nicht nötig.} Die EKF-Phase reicht nur bis zur Tischmitte
+($y\!\ge\!0$); dort ist der Ball noch bei $|x|\lesssim0{,}8\,$m -- die weite
+seitliche Ablage entsteht erst \emph{danach}. Bei der aktuellen Position
+($y=-1{,}9$) sind \textbf{100\,\%} der gültigen Schläge während der EKF-Phase im
+Sichtfeld; eine Position weiter hinten ($y=-2{,}3$/$-2{,}7$) deckt zwar ebenfalls
+$100\,\%$ ab, verschlechtert aber die Tiefe (größeres $Z$). \emph{Aber:} Der
+\emph{vorhergesagte} Auftreffpunkt ist bei sehr schrägen Randbällen ungenauer --
+mittig $\sigma\approx1{,}7\,$cm (p90 $7\,$cm), am Rand ($x^\ast\approx1{,}1\,$m)
+$\sigma\approx5$--$7\,$cm (p90 bis $22\,$cm). Ursache ist \emph{nicht} die Kamera,
+sondern die \emph{open-loop-Extrapolation} der weiten Querbewegung von der
+Tischmitte bis zum Rand (Hebel auf $v_x$ plus Bounce). Eine Kamera weiter hinten
+würde das nicht beheben (sie sieht den weiten Durchstoßpunkt aus der Nähe ohnehin
+nicht und verschlechtert die Tiefe). Der Restfehler liegt im Rahmen der
+Schläger-/Reichweitentoleranz; eine spätere Verbesserung wäre, den Einfrierpunkt
+für extreme Querbälle etwas nach hinten zu legen.
+
+\paragraph{Ausblick: variationsärmere Schätzung.} Mehrere Ansätze würden die
+Streuung über das hier Erreichte hinaus weiter senken:
+\begin{itemize}
+\item \textbf{Glätter statt reiner Vorwärts-EKF:} Ein Fixed-Lag- bzw.\ RTS-Glätter
+  (oder ein Batch-/Least-Squares-Fit der ganzen Bahn) nutzt \emph{alle} Messungen
+  bis zur Tischmitte auch \emph{rückwärts} -- die früh noch verrauschte
+  Geschwindigkeit wird durch die späteren Messungen nachträglich korrigiert.
+\item \textbf{Bahnmodell als Constraint:} Der Flug ist eine Parabel mit
+  Luftwiderstand mit nur wenigen Parametern ($\mathbf r_0,\mathbf v_0$). Ein
+  überbestimmter parametrischer Fit ist robuster als die rekursive
+  Punkt-für-Punkt-Schätzung.
+\item \textbf{Restitution/Drag mitschätzen:} $e$ und $k$ als Zustände (oder online
+  kalibriert) verringern den Modellfehler, der sich am Bounce stark auf den
+  Auftreffpunkt überträgt.
+\item \textbf{UKF/IEKF statt EKF:} weniger Linearisierungsfehler im nichtlinearen
+  Drag-/Bounce-Modell.
+\item \textbf{Ausreißer-Abweisung:} ein Mahalanobis-Gate gegen Fehltriangulationen
+  (verdeckter oder nur teilerkannter Ball) -- einzelne Ausreißer treiben sonst die
+  Varianz.
+\item \textbf{Bessere Messung:} Subpixel-Detektion (kleineres $\sigma_{\text{px}}$)
+  oder höhere Auflösung (größeres $f$) senken das Rauschen linear; eine zweite
+  Kamera-Perspektive zum Tiefenabgleich wäre die physikalisch sauberste Lösung
+  (hier aus Budgetgründen ausgeschlossen).
+\item \textbf{Adaptiver Einfrierpunkt:} für extreme Querbälle die Mitte-Grenze
+  etwas nach hinten legen -- weniger Open-Loop-Extrapolation, kleinerer Randfehler.
+\end{itemize}
+
 \begin{infobox}[title={Lehren -- Stereo-Tracking}]
 (1)~Tiefe ist der schwache Freiheitsgrad: Fehler $\propto Z^2/(f\,B)$. (2)~Das
 Messrauschen \emph{ehrlich} (anisotrop, entfernungsabhängig) modellieren, sonst
@@ -1299,11 +1439,64 @@ den Roboter.
 
 \begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta dieser Verfeinerung (\# angepasst)}]
 src/p2_tabletennis/
-|- worlds/tabletennis.sdf            # angepasst: Kameras 30 -> 60 Hz
-`- p2_tabletennis/flight_ekf.py      # angepasst: R entfernungsabh., Q*dt, Fenster-Init
+|- worlds/tabletennis.sdf            # angepasst: Kameras 60 Hz; Wand auf Reichweite 2.93 m
+|- p2_tabletennis/flight_ekf.py      # angepasst: R entfernungsabh., Q*dt, Fenster-Init, half_reach
+`- p2_tabletennis/opponent_serve.py  # angepasst: Spielermodell (seitl. Position + Zielpunkt)
 \end{lstlisting}
 
-\subsection{Schritt 6 -- Roboteranbindung}
-\emph{[Dokumentation folgt.]} Frühe Abfangbewegung (iterative Verfeinerung),
-inverse Kinematik des Portals und Motorsteuerung über den
+\subsection{Schritt 6 -- Auftreffzeitpunkt und Ball-Klassifikation}
+\label{sec:schritt6-zeit}
+Für den späteren Schlag (Schritt~7) genügt der Auftreff\emph{punkt} nicht -- der
+Schwung muss auf den Auftreff\emph{zeitpunkt} getaktet werden. Die
+Vorwärtsintegration des EKF (\code{predict\_impact}, Schritt~4) liefert die
+Restflugzeit $t^\ast$ ohne Zusatzaufwand: es wird einfach die integrierte Zeit bis
+zum Erreichen der Abfangebene mitgezählt.
+\begin{lstlisting}[style=py,caption={\code{flight\_ekf} -- Restflugzeit $t^\ast$ aus der Vorhersage}]
+def predict_impact(self):
+    x = self.x.copy(); t_acc = 0.0
+    for _ in range(STEPS):
+        x = self._f(x, dt); t_acc += dt          # Zeit mitzaehlen
+        ...  # Tisch-Bounce / Netz / Reichweite wie Schritt 4/5
+        if x[1] <= yR:                            # Abfangebene erreicht
+            return pts, x[:3].copy(), t_acc       # Punkt + Restflugzeit t*
+    return pts, None, None
+\end{lstlisting}
+\noindent Veröffentlicht wird \code{/ball/time\_to\_impact} (\code{std\_msgs/Float32}).
+
+\paragraph{Klassifikation schneller Bälle.} Die Reaktionszeit spreizt stark: ein
+langsamer, hoher Bogen lässt viel Zeit, ein schneller, flacher Ball wenig. Anhand
+von $t^\ast$ wird der Ball klassifiziert (Schwelle \code{fast\_time}, hier
+$0{,}40\,$s); liegt $t^\ast$ darunter, ist das Reaktionsfenster knapp.
+\begin{lstlisting}[style=py,caption={\code{flight\_ekf} -- Ball-Klassifikation (schnell/normal)}]
+fast = t_impact < self.fast_time              # knappes Reaktionsfenster?
+self.tti_pub.publish(Float32(data=t_impact))
+self.class_pub.publish(String(data='schnell' if fast else 'normal'))
+\end{lstlisting}
+\noindent Sinn der Klassifikation: Ist das Reaktionsfenster so knapp, dass die
+ersten Schätzungen für ein sicheres späteres Verfeinern nicht reichen, soll der
+Roboter \emph{früh committen} -- direkt eine Abfangbewegung anfahren bzw.\ schlagen,
+statt auf weitere EKF-Verfeinerung zu warten (die das knappe Fenster aufzehren
+würde). Bei \emph{normalen} Bällen bleibt Zeit, den Abfangpunkt bis zur Tischmitte
+zu verfeinern (Schritt~4). Die Schwelle ist ein Auslegungsparameter; der eigentliche
+„direkt schlagen''-Entscheid gehört in die Roboterlogik (Schritt~7).
+
+\paragraph{Terminals und Befehle.}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Restflugzeit und Ballklasse mitlesen}]
+source ~/ros2_ws/install/setup.bash
+ros2 topic echo /ball/time_to_impact   # Restflugzeit t* [s]
+ros2 topic echo /ball/ball_class       # schnell / normal
+\end{lstlisting}
+\noindent Offline verifiziert: flacher Ball ($v_y\!=\!-4$) $\to t^\ast\!\approx\!0{,}36\,$s
+(„schnell''), hoher Bogen ($v_y\!=\!-2,\ v_z\!=\!2{,}5$) $\to t^\ast\!\approx\!0{,}73\,$s
+(„normal'').
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 6 (\# angepasst)}]
+src/p2_tabletennis/
+`- p2_tabletennis/flight_ekf.py   # angepasst: predict_impact liefert t*;
+                                  # /ball/time_to_impact + /ball/ball_class
+\end{lstlisting}
+
+\subsection{Schritt 7 -- Roboteranbindung}
+\emph{[Dokumentation folgt.]} Umsetzung der Regelstrategie aus 26.2.2: entkoppelte
+PID-Achsregelung des Portals, Schlägerorientierung (Vor-/Rückhand), inverse
+Kinematik und auf $t^\ast$ getaktete Schlagbewegung über den
 \code{ros2\_control}-Stack.
