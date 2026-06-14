@@ -460,23 +460,120 @@ $\mathbf{g}$. Die Ballmasse ist bekannt -- sie wird erst relevant, sobald
 Luftwiderstand/Spin das Modell \emph{nichtlinear} machen (dann ist der EKF
 zwingend, beim reinen Wurf genügte ein linearer KF). Mit jeder neuen Messung
 werden die Wurfparameter (effektiv $\mathbf{r}_0,\mathbf{v}_0$ bzw.\ der
-aktuelle Zustand) aktualisiert; reine Prädiktionsschritte extrapolieren den Flug
-bis zur Zielebene.
+aktuelle Zustand) aktualisiert; reine Prädiktionsschritte extrapolieren den Flug.
 
-\subsubsection{Zielebene am Plattenrand und Fehlschuss-Erkennung}
-Die \textbf{Zielebene} ist eine \emph{vertikale} Ebene entlang der hinteren
-Plattenkante (Roboterseite), z.\,B.\ $x=x_R$. Der Auftreffpunkt ist der
-Schnittpunkt der prädizierten Bahn mit dieser Ebene:
+\paragraph{Schätzung nur bis zur Tischmitte -- danach unveränderbar.} Der EKF
+korrigiert die Bahn nur, solange der Ball auf der \emph{Gegnerseite} ist
+(bis zur Tischmitte, $y=0$). Überschreitet die Schätzung die Mitte, wird sie
+\textbf{eingefroren} -- Abfangpunkt und -zeit gelten ab dann als fest. Drei
+Gründe: (1)~Der Roboter beginnt eine \emph{frühe} Abfangbewegung und verfeinert
+sie bis zur Mitte, fährt danach aber \emph{ruhig} zu Ende -- statt kurz vor dem
+Auftreffpunkt noch schnelle, mechanisch kaum umsetzbare Korrekturen zu machen.
+(2)~In der zeitkritischen Endphase fällt die EKF-Rechenlast weg. (3)~Bis zur
+Mitte ist die Schätzung ohnehin konvergiert. Ein neuer Schlag (Ball wieder weit
+auf der Gegnerseite) setzt das Filter zurück.
+
+\paragraph{Aufprall auf der Platte (Restitution).} Trifft der Ball die
+Tischfläche, ist das ein \emph{Stoß} statt einer glatten Parabel. Ein realer
+Tischtennisball verliert dabei wenig Energie: aus der ITTF-Prüfung (Fall aus
+$30{,}5\,$cm, Rücksprung $24$--$26\,$cm) folgt ein Restitutionskoeffizient
+$e=\sqrt{h_{\text{zurück}}/h_{\text{fall}}}\approx0{,}9$ -- \emph{nahezu}
+elastisch, aber nicht ideal ($e=1$). Im Flugmodell wird der Aufprall als
+\textbf{stückweise Reflexion} eingebaut: schneidet die prädizierte Bahn die
+Tischebene ($z=h_{\text{Tisch}}$) innerhalb der Platte, kehrt sich die
+Normalkomponente um und wird gedämpft,
 \begin{equation}
-t^\ast=\frac{x_R-x_0}{v_{x0}},\qquad
-y^\ast=y(t^\ast),\quad z^\ast=z(t^\ast),
+v_z \;\rightarrow\; -e\,v_z,\qquad (v_x,v_y\ \text{bei Reibungsfreiheit unverändert}),
 \end{equation}
-also Koordinaten $(x_R,y^\ast,z^\ast)$ und Abfangzeit $t^\ast$. Der
-\textbf{Plattenrand begrenzt} die gültige Zielzone. Als \textbf{Fehlschuss}
-markiert wird (Flag/Diagnostic), wenn der Ball das gemeinsame Sichtfeld beider
-Kameras verlässt (keine Triangulation mehr -- vgl.\ FOV-Visualisierung in 0.B)
-\emph{oder} der prädizierte Durchstoßpunkt außerhalb der Plattenbreite bzw.\ des
-erreichbaren Bereichs liegt.
+danach läuft die Parabel weiter. \textbf{Reibung} beim Aufprall wirkt nur
+tangential und damit fast ausschließlich auf den \emph{Spin}; auf die
+translatorische Bahn ist sie ohne Spin vernachlässigbar. Ein ideal elastischer
+Stoß ($e=1$) ist eine brauchbare erste Näherung, $e\approx0{,}9$ ist genauer und
+verschiebt Rücksprunghöhe und damit Abfangzeit spürbar. In der Simulation liefert
+Gazebo dieses Verhalten über den \code{restitution\_coefficient} der
+Kollisionsfläche (Schritt~2).
+
+\subsubsection{Zielebene, Plattenrand und Fehlschuss-Erkennung}
+Zwei Ebenen sind relevant. \textbf{(1)~Die Tischfläche}
+($z=h_{\text{Tisch}}=0{,}76\,$m, horizontal): Der Schnittpunkt der prädizierten
+Bahn mit ihr ist der \emph{Aufprallpunkt} auf der Platte. Liegt er \emph{innerhalb}
+des Plattenrands auf der Roboterhälfte, ist der Schlag gültig (dort findet der
+Restitutions-Bounce statt); liegt er außerhalb, geht der Ball ins Aus.
+\textbf{(2)~Die Abfangebene} (vertikal, z.\,B.\ $y=y_R$ an der hinteren
+Plattenkante der Roboterseite): ihr Durchstoßpunkt \emph{nach} dem Bounce ist die
+eigentliche \textbf{Abfangposition} des Schlägers,
+\begin{equation}
+t^\ast=\frac{y_R-y_0}{v_{y0}},\qquad x^\ast=x(t^\ast),\quad z^\ast=z(t^\ast),
+\end{equation}
+also $(x^\ast,y_R,z^\ast)$ und Abfangzeit $t^\ast$ (mit dem gespiegelten
+Geschwindigkeitsvektor nach dem Tischkontakt). Als \textbf{Fehlschuss} markiert
+wird (Flag/Diagnostic): wenn der Ball das gemeinsame Sichtfeld beider Kameras
+verlässt (keine Triangulation mehr -- vgl.\ FOV-Kegel, Kap.~\ref{ch:projekt0b}),
+\emph{oder} der Aufprallpunkt außerhalb der Platte liegt, \emph{oder} die
+Abfangposition außerhalb des Arbeitsraums, \emph{oder} ein \textbf{Netztreffer}
+vorhergesagt wird.
+
+\paragraph{Netztreffer und Netzroller.} Schneidet die prädizierte Bahn die
+\emph{Netzebene} ($y=0$) \emph{unterhalb} der Netzoberkante ($z<0{,}9125\,$m),
+geht der Ball ins Netz -- der Wurf wird ebenfalls als \textbf{ungültig} erkannt.
+Auch ein \emph{Netzroller} (der Ball berührt die Netzkante und fällt knapp
+dahinter) gilt als nicht abfangbar: die dabei stark verlangsamte, abgelenkte Bahn
+lässt dem Roboter weder Bewegungsraum noch Reaktionszeit, ihn regulär zu treffen.
+Solche Bälle werden gar nicht erst angefahren.
+
+\paragraph{Aufschlag- vs.\ Ballwechselregeln.} Bisher haben die Beispielwürfe nur
+einen \emph{Ballwechsel} nachgebildet (der Ball kommt über das Netz und trifft
+zuerst die Roboterseite). Ein regelkonformer \textbf{Aufschlag} sieht anders aus:
+Der Ball muss \emph{zuerst genau einmal auf der Aufschlagseite} ($y>0$, beim
+Gegenspieler) aufkommen und \emph{danach} auf der Roboterseite ($y<0$). Erst dann
+ist der Aufschlag gültig. \textbf{Der Roboter schlägt nie selbst auf} -- der
+Aufschlag kommt immer vom Spieler; der Roboter ist hier ausschließlich
+Rückschläger. Daraus folgen die Fehlschuss-Fälle des Aufschlags: erster Aufprall
+\emph{nicht} auf der eigenen Seite, ein \emph{zweiter} Aufprall erneut auf der
+Aufschlagseite, oder ein Netztreffer. Nach einem gültigen Aufschlag wird auf die
+\textbf{Ballwechselregeln} umgeschaltet: der ankommende Ball muss genau einmal auf
+der Roboterseite aufkommen (ein zweiter Aufprall ohne Rückschlag ist ein
+Doppelaufprall). Dieselbe kleine Zustandsmaschine, die schon zwischen REAKTIV und
+PAUSE trennt, verwaltet damit auch die Phase \emph{Aufschlag} bzw.\
+\emph{Ballwechsel}.
+
+\paragraph{Sichtbare Begrenzungswand als Güte-Anzeige.} Um die Qualität von EKF
+und Flugmodell \emph{direkt} beurteilen zu können, wird am Plattenrand der
+Roboterseite (an der Abfangebene $y=y_R$) eine \textbf{durchsichtige
+Begrenzungswand} eingezogen -- rein visuell, der Ball fliegt hindurch. Auf ihr
+wird der vom EKF geschätzte \emph{Auftreffpunkt} als Marker eingeblendet, der sich
+mit jeder Messung aktualisiert. So sieht man unmittelbar, \emph{wo} das Modell den
+Durchstoßpunkt erwartet und \emph{wo} der reale Ball die Wand tatsächlich
+durchbricht -- die Abweichung ist die Modellgüte. Ein \textbf{Fehlschuss} wird an
+derselben Stelle sichtbar gemacht (die Wand färbt sich rot) und beim nächsten
+Ballwechsel wieder zurückgesetzt.
+
+\paragraph{Abbruch und Rückkehr in die Initialstellung.} Wird ein Wurf -- noch
+\emph{während} des Anfahrens -- als ungültig erkannt (Aus, Netz, außer
+Reichweite), muss die laufende Roboterbewegung \textbf{abgebrochen} werden: das
+aktive Goal wird gecancelt, der Roboter stoppt die Abfangbewegung und fährt in
+seine \textbf{Initialstellung} (Home) zurück -- bereit für den nächsten
+Ballwechsel. Genau dafür ist der \textbf{Action}-Mechanismus gemacht
+(Projekt~0.A, Kap.~\ref{ch:projekt0a}): ein Goal ist jederzeit \emph{cancelbar},
+und der Action-Server reagiert mit einem definierten Abbruch -- in Simulation und
+Realität identisch.
+
+\paragraph{Betriebsmodi: reaktiv vs.\ Pause.} Der Roboter darf \emph{nicht
+immer} auf erkannte Bälle reagieren. Eine kleine \textbf{Zustandsmaschine} trennt:
+\begin{itemize}
+\item \textbf{REAKTIV} -- ein Ballwechsel läuft: die Tracker-Schätzungen werden in
+  Roboter-Goals umgesetzt (frühe Abfangbewegung, laufende Verfeinerung).
+\item \textbf{PAUSE} -- zwischen den Ballwechseln (Ball holen, Aufschlag
+  vorbereiten): der Tracker darf weiterlaufen, löst aber \emph{keine}
+  Roboterbewegung aus. So werden \textbf{Fehlreaktionen} ausgeschlossen, etwa wenn
+  jemand den Ball aufhebt oder über den Tisch greift.
+\end{itemize}
+Diese Moduslogik gehört bereits in den \emph{Entwurf}. Da die Roboterbefehle
+ohnehin über \textbf{Actions und Goals} laufen, ist das passende Konstrukt schon
+vorhanden: im PAUSE-Modus werden schlicht keine Goals gesendet bzw.\ angenommen,
+im REAKTIV-Modus sendet der \code{strike\_planner} Goals und
+aktualisiert bzw.\ cancelt sie. Derselbe Mechanismus trägt von der Simulation in
+die reale Anlage.
 
 \subsubsection{Ausblick: Luftwiderstand}
 Beim leichten Tischtennisball (Masse $m\approx2{,}7\,$g, Durchmesser $40\,$mm)
@@ -526,3 +623,539 @@ kartesischen Zielposition, die Armgelenke für den Schlägerwinkel. Der
 (micro-ROS $\rightarrow$ ESP32 $\rightarrow$ TMC2209) erzeugt die Schritte --
 derselbe \code{ros2\_control}-Stack wie in Projekt~0.A und Projekt~1. Hier zählt
 das \textbf{Timing}: in der Simulation trivial, real der kritische Faktor.
+
+% =============================================================
+\section{Umsetzung}
+Hier folgen die konkreten Implementierungsschritte -- jeder für sich lauffähig,
+bevor der nächste daraufgesetzt wird. Wie in den Einstiegsprojekten lebt der Code
+in einem eigenen Paket \code{p2\_tabletennis} im gemeinsamen Workspace
+\code{\textasciitilde/ros2\_ws}.
+
+\subsection{Schritt 1 -- Tischtennisplatte als STL in Gazebo einbinden}
+Das CAD-Modell der Platte (aus SolidWorks o.\,Ä.\ als \code{.stl} exportiert)
+wird als statisches Mesh-Modell in eine Gazebo-Welt eingebunden. Zwei Eigenheiten
+von STL-Dateien sind dabei zu beachten:
+\begin{itemize}
+\item \textbf{Einheiten:} STL trägt keine Einheit. Der Export ist hier in
+  \emph{Millimetern} (Bounding-Box $1525\times2740\times912$) -- Gazebo rechnet in
+  \emph{Metern}, also \code{<scale>0.001 0.001 0.001</scale>}.
+\item \textbf{Orientierung:} Im CAD zeigt $Y$ nach oben (die Platte sitzt auf der
+  $y=0$-Ebene), in ROS/Gazebo zeigt $Z$ nach oben. Eine Modell-\code{<pose>} mit
+  Roll $+90^\circ$ ($1{,}5708$) dreht $Y$-oben auf $Z$-oben.
+\end{itemize}
+\begin{lstlisting}[style=xml,caption={\code{worlds/tabletennis.sdf} -- die Platte als Mesh-Modell}]
+<model name="table">
+  <static>true</static>
+  <pose>0.173 0 0 1.5708 0 0</pose>   <!-- x: Breite zentrieren; roll +90: Y->Z -->
+  <link name="link">
+    <visual name="v"><geometry><mesh>
+      <uri>package://p2_tabletennis/meshes/Tischtennisplatte.stl</uri>
+      <scale>0.001 0.001 0.001</scale>            <!-- mm -> m -->
+    </mesh></geometry></visual>
+    <collision name="c"><geometry><mesh>
+      <uri>package://p2_tabletennis/meshes/Tischtennisplatte.stl</uri>
+      <scale>0.001 0.001 0.001</scale>
+    </mesh></geometry></collision>
+  </link>
+</model>
+\end{lstlisting}
+
+\begin{warnbox}[title={Gazebo löst \code{package://} nur über \code{GZ\_SIM\_RESOURCE\_PATH}}]
+Gazebo kennt keine ROS-Pakete. Damit \code{package://p2\_tabletennis/\ldots}
+auflöst, hängt die Launch-Datei den \emph{Eltern-Ordner} des Paket-share an den
+Suchpfad -- Gazebo sucht dort den ersten URI-Teil als Unterordner. Deshalb
+\textbf{immer über die Launch-Datei starten}, nicht mit nacktem \code{gz sim}.
+\begin{lstlisting}[style=py,caption={\code{launch/table.launch.py} (Kern)}]
+from launch.actions import AppendEnvironmentVariable
+pkg_share = get_package_share_directory('p2_tabletennis')
+AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.dirname(pkg_share))
+# ... IncludeLaunchDescription(gz_sim.launch.py, gz_args=[world, ' -r'])
+\end{lstlisting}
+\end{warnbox}
+
+\begin{lstlisting}[style=bash,caption={Bauen, sourcen, Welt starten}]
+cd ~/ros2_ws
+colcon build --packages-select p2_tabletennis
+source install/setup.bash
+ros2 launch p2_tabletennis table.launch.py
+\end{lstlisting}
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.85\textwidth]{project_2/tabletennis_plate.png}
+  \caption{Die eingebundene Tischtennisplatte in Gazebo: korrekt in Metern
+  skaliert (Spielfläche bei $z=0{,}76\,$m) und über Roll\,$+90^\circ$ aufrecht
+  gestellt. Sie bildet die Referenzgeometrie und die spätere Zielebene.}
+  \label{fig:p2-table}
+\end{figure}
+
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 1 (\# neu / \# angepasst)}]
+src/p2_tabletennis/
+|- meshes/Tischtennisplatte.stl   # neu (STL aus dem CAD, in mm)
+|- worlds/tabletennis.sdf         # neu (Platte als Mesh-Modell + Boden + Licht)
+|- launch/table.launch.py         # neu (Gazebo + GZ_SIM_RESOURCE_PATH)
+`- setup.py                       # angepasst: data_files (worlds/launch/meshes)
+\end{lstlisting}
+
+\subsection{Schritt 2 -- Stereo-Rig und Ball in die Welt integrieren}
+Die Wahrnehmung aus Projekt~0.B (Kap.~\ref{ch:projekt0b}) wird übernommen: das
+Stereo-Rig und der Ball kommen in \code{tabletennis.sdf}, die Knoten
+(\code{ball\_detector}, \code{ball\_tracker}, \code{marker\_viz},
+\code{fov\_viz}) werden unverändert aus \code{p0b\_stereo} wiederverwendet.
+
+\paragraph{Welt erweitern.} Stereo-Rig (Blick entlang $+y$ zur Gegnerseite,
+Basisbreite $0{,}10\,$m) und der orange Ball (40\,mm, 2{,}7\,g) kommen hinzu.
+Damit der Ball \textbf{nicht durch die Platte fällt}, bekommt die Spielfläche
+eine \emph{Box-Kollision} (robuster als ein konkaves Mesh) mit Restitution:
+\begin{lstlisting}[style=xml,caption={Spielflächen-Kollision + Ball (Auszug aus tabletennis.sdf)}]
+<model name="table_top"><static>true</static>
+  <pose>0 0 0.74 0 0 0</pose>                 <!-- Oberkante z=0.76 -->
+  <link name="link"><collision name="c">
+    <geometry><box><size>1.525 2.74 0.04</size></box></geometry>
+    <surface>
+      <bounce><restitution_coefficient>0.9</restitution_coefficient><threshold>0</threshold></bounce>
+      <friction><ode><mu>0.4</mu><mu2>0.4</mu2></ode></friction>
+    </surface>
+  </collision></link>
+</model>
+
+<model name="ball"><pose>0 0.5 1.2 0 0 0</pose>
+  <link name="link">
+    <inertial><mass>0.0027</mass> ... </inertial>
+    <collision name="c"><geometry><sphere><radius>0.02</radius></sphere></geometry>
+      <surface><bounce><restitution_coefficient>0.9</restitution_coefficient>
+        <threshold>0</threshold></bounce></surface></collision>
+    <visual name="v"> ... orange ... </visual>
+  </link>
+</model>
+\end{lstlisting}
+\begin{infobox}[title={Aufprall: kein Durchfallen, fast elastischer Stoß}]
+Eine \emph{Box}-Kollision der Spielfläche (statt des konkaven Tisch-Meshes)
+verhindert Tunneling; mit dem kleinen Zeitschritt ($1\,$ms) bleibt der Ball
+sicher auf dem Tisch (Test: Start $z=1{,}2$, nach Sekunden noch springend bei
+$z\approx0{,}83$ -- nicht durchgefallen). Der \code{restitution\_coefficient}
+$0{,}9$ entspricht dem realen Ball (nahezu elastisch, vgl.\ 26.2.1.4); Reibung
+beim Aufprall ist ohne Spin vernachlässigbar.
+\end{infobox}
+
+\paragraph{Netz: Box-Kollision statt eigenem STL.} Das Tisch-Mesh enthält das
+Netz nur \emph{visuell} -- ohne Kollision fliegt der Ball hindurch. Ein eigener
+STL-Körper fürs Netz ist dafür \emph{nicht} nötig (und als dünner, konkaver
+Collider sogar tunneling-anfällig); robuster ist -- wie bei der Spielfläche --
+eine dünne \emph{Box}-Kollision am Netzort ($y=0$, Höhe $15{,}25\,$cm über der
+Platte):
+\begin{lstlisting}[style=xml,caption={Netz-Kollision (Auszug aus tabletennis.sdf)}]
+<model name="net"><static>true</static>
+  <pose>0 0 0.83625 0 0 0</pose>            <!-- 0.76 + 0.1525/2 -->
+  <link name="link"><collision name="c">
+    <geometry><box><size>1.525 0.01 0.1525</size></box></geometry>
+    <surface>
+      <bounce><restitution_coefficient>0.1</restitution_coefficient><threshold>0</threshold></bounce>
+      <friction><ode><mu>0.8</mu><mu2>0.8</mu2></ode></friction>
+    </surface>
+  </collision></link>
+</model>
+\end{lstlisting}
+\noindent Die \textbf{niedrige Restitution} ($0{,}1$) und \textbf{hohe Reibung}
+nähern das weiche, energiezehrende Verhalten des Netzes an: der Ball prallt nicht
+wie von einer Wand ab, sondern verliert Energie und fällt. Eine genauere
+\emph{Netzphysik} (nachgiebiges Gewebe) bräuchte ein Soft-Body- bzw.\
+Feder-Masse-Netz -- in Gazebo aufwändig; für die Spiel-Logik genügt meist ein
+\emph{Netztreffer-Flag} (Let/Fehler) zusätzlich zur Fehlschuss-Erkennung
+(26.2.1.5).
+
+\paragraph{Sichtkegel.} Wie in Projekt~0.B (Kap.~\ref{ch:projekt0b},
+Sichtfeld-Visualisierung) zeichnet \code{fov\_viz} die Sichtkegel beider Kameras
+als \code{MarkerArray} auf \code{/stereo/fov\_markers}; ihr Überlappungsbereich
+ist die Zone, in der trianguliert werden kann.
+
+\paragraph{Pipeline per Launch.} Eine Launch-Datei bündelt -- mit allen Lehren
+aus 0.A/0.B -- Gazebo, \code{/clock}-Brücke, Bildbrücke, statische Kamera-TF und
+die vier Knoten, alle mit \code{use\_sim\_time}:
+\begin{lstlisting}[style=py,caption={\code{launch/tabletennis.launch.py} (gekürzt)}]
+detector = Node(package='p0b_stereo', executable='ball_detector', parameters=[SIM])
+tracker  = Node(package='p0b_stereo', executable='ball_tracker',  parameters=[SIM])
+viz      = Node(package='p0b_stereo', executable='marker_viz',    parameters=[SIM])
+fov      = Node(package='p0b_stereo', executable='fov_viz',       parameters=[SIM])
+static_tf = Node(package='tf2_ros', executable='static_transform_publisher',
+    arguments=['--x','0','--y','-1.9','--z','1.1','--roll','-1.5708',
+               '--frame-id','world','--child-frame-id','stereo_left_optical'])
+return LaunchDescription([resource, gz, clock_bridge, image_bridge,
+                          static_tf, detector, tracker, viz, fov, rviz])
+\end{lstlisting}
+\begin{infobox}[title={Checkliste 0.A/0.B -- in dieser Launch beachtet}]
+\code{/clock} gebrückt \emph{und} \code{use\_sim\_time:=true} auf allen Knoten
+(sonst ``No transform''); statische TF \code{world}$\rightarrow$%
+\code{stereo\_left\_optical}, damit der Kamerarahmen existiert; \code{ogre2}/EGL
+fürs Kamerarendering; \code{ApproximateTimeSynchronizer} für L/R-Bilder; Ball
+orange ($\Rightarrow$ HSV-Bereich aus 0.B passt); \code{package://} über
+\code{GZ\_SIM\_RESOURCE\_PATH}.
+\end{infobox}
+
+\paragraph{Terminals und Befehle.}
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- bauen + alles starten (Gazebo + RViz + Pipeline)}]
+cd ~/ros2_ws
+colcon build --packages-select p2_tabletennis
+source install/setup.bash
+ros2 launch p2_tabletennis tabletennis.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Ballposition anzeigen}]
+source ~/ros2_ws/install/setup.bash
+ros2 topic echo /ball/point        # gemessene 3D-Position (Triangulation)
+ros2 topic echo /ball/estimate     # Kalman-Schaetzung
+\end{lstlisting}
+\noindent In Gazebo erscheinen Platte, Rig und der (fallende/springende) Ball;
+in RViz die Sichtkegel, die Marker (gemessen/geschätzt/Vorhersage) und beide
+Kamerabilder. Der \emph{parametrische Gegnerschlag} (Anfangsgeschwindigkeit statt
+freier Fall) folgt später; bis dahin lässt sich der Ball in Gazebo mit der Maus
+bewegen.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 2 (\# neu / \# angepasst)}]
+src/p2_tabletennis/
+|- worlds/tabletennis.sdf       # angepasst: Stereo-Rig + Ball + Box-Kollision (Platte + Netz)
+|- launch/tabletennis.launch.py # neu (Welt + Bruecken + Pipeline + RViz)
+|- config/tabletennis.rviz      # neu (Marker, FOV, Kamerabilder; Fixed Frame world)
+`- package.xml                  # angepasst: exec_depend p0b_stereo u.a.
+\end{lstlisting}
+
+\subsection{Schritt 3 -- Balltracking: fliegender Ball}
+Damit die Pipeline einen echten Flug verfolgt, muss der Ball über den Tisch
+fliegen -- der Gegnerschlag aus 26.2.1.2. Gazebo bietet \emph{keine} API, einem
+freien Körper eine Anfangsgeschwindigkeit zu geben (nur \code{set\_pose}). Wir
+bewegen den Ball daher \textbf{kinematisch} entlang einer parametrischen
+Wurfparabel: der Knoten \code{opponent\_serve} integriert Position und
+Geschwindigkeit (mit Tisch-Bounce, vgl.\ 26.2.1.4) und setzt die Ballpose
+$\sim$50x/s über den gebrückten \code{SetEntityPose}-Service. Vorteil:
+reproduzierbar und mit bekannter Ground Truth -- ideal, um Erkennung und EKF
+gegenzuprüfen. (\code{self.p(n)} unten ist Kürzel für
+\code{self.get\_parameter(n).value}.)
+\begin{lstlisting}[style=py,caption={\code{opponent\_serve} -- Kern (Wurf + Bounce)}]
+def start_serve(self):                      # v0 aus speed/azimuth/elevation
+    s, sp = self.p('start'), self.p('speed')
+    az, el = self.p('azimuth'), self.p('elevation')
+    self.pos = [float(s[0]), float(s[1]), float(s[2])]
+    self.vel = [sp*cos(el)*cos(az), sp*cos(el)*sin(az), sp*sin(el)]
+    self.last_t = None
+
+def tick(self):
+    if self.pos is None: return
+    now = self.get_clock().now().nanoseconds * 1e-9    # dt aus (Sim-)Zeit!
+    if self.last_t is None: self.last_t = now; return
+    dt = now - self.last_t; self.last_t = now
+    self.vel[2] -= self.p('g') * dt
+    for i in range(3): self.pos[i] += self.vel[i] * dt
+    if self.pos[2] <= TZ and self.vel[2] < 0 and on_table(self.pos):
+        self.pos[2] = TZ; self.vel[2] *= -self.p('restitution')   # Bounce
+    self.set_ball(self.pos)                 # SetEntityPose-Service (async)
+\end{lstlisting}
+
+\begin{infobox}[title={Lehre: dt aus der Uhr -- und \code{use\_sim\_time} braucht /clock}]
+Mit \emph{festem} \code{dt} pro Tick flog der Ball zu schnell, weil der Timer
+unter \code{use\_sim\_time} beim Sim-Zeit-Aufholen mehrfach feuert; korrekt ist
+\code{dt} aus der \emph{tatsächlichen} Uhr-Differenz. Und: läuft
+\code{opponent\_serve} mit \code{use\_sim\_time}, aber \emph{ohne} gebrückte
+\code{/clock}, feuert sein Timer nie -- der Ball bleibt stehen (genau der
+Checklistenpunkt aus 24.6). Die \code{/clock}-Brücke ist in der Launch deshalb
+zwingend.
+\end{infobox}
+
+\noindent Den fliegenden Ball verarbeitet die \textbf{unveränderte Pipeline aus
+Schritt 2}: \code{ball\_detector} (HSV + sparse Triangulation, 0.B) $\rightarrow$
+\code{/ball/point}; \code{ball\_tracker} (Kalman) $\rightarrow$
+\code{/ball/estimate} und \code{/ball/prediction}; \code{marker\_viz} zeigt alles
+in RViz. Verlässt der Ball das gemeinsame Sichtfeld, stoppt \code{/ball/point} --
+die Marker frieren auf der letzten Position ein (Fehlschuss-Indiz, vgl.\
+26.2.1.5).
+
+\begin{infobox}[title={Checkliste 23.5/24.6 -- in Schritt 3 beachtet}]
+\code{/clock} + \code{use\_sim\_time} (sonst kein Servetimer); Pose-Felder mit
+\code{float(\ldots)} gecastet (NumPy-Skalare in ROS-Feldern); \emph{kein}
+Custom-Interface -- Auslösung über \code{std\_srvs/Trigger}; der Callback heißt
+\code{on\_serve}, nicht \code{handle} (rclpy-Kollision); HSV-Bereich,
+L/R-Synchronisation und Disparität unverändert aus 0.B.
+\end{infobox}
+
+\paragraph{Terminals und Befehle.}
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- alles starten (Welt + Pipeline + Gegnerschlag + RViz)}]
+cd ~/ros2_ws
+colcon build --packages-select p2_tabletennis
+source install/setup.bash
+ros2 launch p2_tabletennis tabletennis.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Messung und Schaetzung mitlesen}]
+source ~/ros2_ws/install/setup.bash
+ros2 topic echo /ball/point        # gemessene 3D-Position (Triangulation)
+ros2 topic echo /ball/estimate     # Kalman-Schaetzung
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 3 (optional) -- Schlag manuell ausloesen}]
+source ~/ros2_ws/install/setup.bash
+ros2 service call /opponent/serve std_srvs/srv/Trigger "{}"
+\end{lstlisting}
+\noindent \code{opponent\_serve} schlägt standardmäßig alle $5\,$s automatisch
+auf (Parameter \code{auto\_period}); \code{speed}, \code{azimuth},
+\code{elevation} und \code{start} lassen sich anpassen, damit der Ball auf der
+Roboterhälfte aufkommt und im Sichtfeld bleibt.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 3 (\# neu / \# angepasst)}]
+src/p2_tabletennis/
+|- p2_tabletennis/opponent_serve.py  # neu (parametrischer Gegnerschlag)
+|- config/set_pose_bridge.yaml       # neu (Service-Bruecke set_pose)
+|- launch/tabletennis.launch.py      # angepasst: set_pose-Bruecke + opponent_serve
+|- setup.py                          # angepasst: entry_point opponent_serve
+`- package.xml                       # angepasst: ros_gz_interfaces, std_srvs ...
+\end{lstlisting}
+
+\subsection{Schritt 4 -- Flugschätzung mit EKF und Luftwiderstand}
+Der lineare 0.B-Tracker wird durch ein \textbf{EKF} ersetzt
+(\code{flight\_ekf}), das den nichtlinearen Flug aus 26.2.1.4/26.2.1.6 schätzt:
+Zustand $\mathbf{x}=[\mathbf{r},\mathbf{v}]^\top$ (6D), Prozessmodell
+\begin{equation}
+\dot{\mathbf r}=\mathbf v,\qquad
+\dot{\mathbf v}=\mathbf g-k\,\lVert\mathbf v\rVert\,\mathbf v,\qquad
+k=\frac{\rho\,C_D\,A}{2m}\approx0{,}131\,\mathrm{m^{-1}}.
+\end{equation}
+Wegen des $\lVert\mathbf v\rVert\mathbf v$-Terms ist das nichtlinear -- der EKF
+linearisiert pro Schritt mit der Jacobi-Matrix; für den Geschwindigkeitsblock gilt
+\begin{equation}
+\frac{\partial \dot{\mathbf v}}{\partial \mathbf v}
+= -k\Big(\lVert\mathbf v\rVert\,I+\frac{\mathbf v\mathbf v^\top}{\lVert\mathbf v\rVert}\Big).
+\end{equation}
+\begin{lstlisting}[style=py,caption={\code{flight\_ekf} -- EKF-Kern (Position gemessen, H=[I\ 0])}]
+def ekf_step(self, z, dt):
+    F = self._F(self.x, dt)               # Jacobi der Dynamik
+    self.x = self._f(self.x, dt)          # Praediktion (nichtlinear, mit Drag)
+    self.P = F @ self.P @ F.T + self.Q
+    S = self.P[:3, :3] + self.R           # Korrektur, H = [I 0]
+    K = self.P[:, :3] @ np.linalg.inv(S)
+    self.x = self.x + K @ (z - self.x[:3])
+    self.P = (np.eye(6) - K @ H) @ self.P
+\end{lstlisting}
+
+\begin{warnbox}[title={Physik im Welt-Frame -- Messungen per TF transformieren}]
+Gravitation, Tischebene ($z=0{,}76$) und Abfangebene leben im \textbf{Welt-Frame},
+die Messungen (\code{/ball/point}) kommen aber im \emph{optischen Kameraframe}.
+Der EKF transformiert sie daher per TF nach \code{world}
+(\code{tf\_buffer.transform(msg, 'world')}) und rechnet/publiziert in \code{world}.
+In 0.B war das egal (konstante Geschwindigkeit, kein Schwerefeld) -- hier ist es
+zwingend.
+\end{warnbox}
+
+\paragraph{Auftreffpunkt vorhersagen.} Nach jedem Update wird der Zustand
+\emph{ohne} Messung vorwärts integriert (mit Tisch-Bounce) bis zur Abfangebene
+$y=y_R$; das ergibt Abfangpunkt und -zeit. Netztreffer und Aus werden dabei wie
+in 26.2.1.5 erkannt.
+\begin{lstlisting}[style=py,caption={\code{predict\_impact} -- Bounce, Netz, Abfangebene}]
+def predict_impact(self):
+    x = self.x.copy(); pts = [x[:3].copy()]
+    for _ in range(STEPS):
+        yprev = x[1]; x = self._f(x, dt)
+        if x[2] <= TZ and x[5] < 0 and on_table(x):   # Tisch-Bounce
+            x[2] = TZ; x[5] *= -E
+        if yprev > 0 >= x[1] and x[2] < NET_TOP:       # Netztreffer -> ungueltig
+            return pts, None
+        if x[1] <= yR:                                 # Abfangebene erreicht
+            return pts, x[:3].copy()
+    return pts, None
+\end{lstlisting}
+\noindent Veröffentlicht werden \code{/ball/estimate} und \code{/ball/prediction}
+(wie 0.B, sodass \code{marker\_viz} weiterläuft) sowie \code{/ball/intercept} und
+ein Marker (\code{/ball/intercept\_marker}, gelber Zylinder in RViz).
+
+\paragraph{Einfrieren an der Tischmitte (Umsetzung).} Gemäß 26.2.1.4 korrigiert
+der EKF nur bis zur Mitte ($y=0$); danach steht die Schätzung fest und es wird
+\emph{nicht weitergerechnet} (Performance, ruhige Endanfahrt). Ein neuer Schlag
+setzt zurück:
+\begin{lstlisting}[style=py,caption={\code{flight\_ekf} -- Einfrieren und Reset}]
+def on_point(self, msg):
+    z = self._to_world(msg)                  # TF: optical -> world
+    if self.frozen:                          # Schaetzung steht fest
+        if z[1] > self.reset_y: self._reset()   # nur neuer Schlag setzt zurueck
+        else: return                         # sonst: kein EKF-Rechnen mehr
+    ...                                      # init / ekf_step / publish
+    if self.x[1] <= self.freeze_y:           # Tischmitte erreicht
+        self.frozen = True                   # -> Abfangpunkt unveraenderbar
+\end{lstlisting}
+\noindent Verifiziert: das Einfrieren erfolgt bei $y\approx0$; danach bleiben
+Schätzung und Abfangpunkt identisch (keine weiteren Updates), ein Ball wieder bei
+$y>1{,}0$ löst den Reset aus.
+
+\begin{infobox}[title={Zwei EKF-Stolpersteine, die wir live trafen}]
+\textbf{(1) Geschwindigkeit initialisieren:} mit Startgeschwindigkeit $0$ braucht
+der EKF zu lange -- wir setzen $\mathbf v$ aus der \emph{Differenz der ersten
+zwei Messungen} ($\mathbf v=(\mathbf z_1-\mathbf z_0)/\Delta t$). \textbf{(2) $Q$
+strukturieren:} ein großes $Q$ auf \emph{allen} Zuständen macht die Schätzung
+verrauscht; klein auf der Position (das Modell $\mathbf r\!+\!\mathbf v\,\Delta t$
+ist exakt), moderat auf der Geschwindigkeit. Damit liegt die \emph{frühe}
+Abfangpunkt-Vorhersage (nach $\sim$16 Messungen) bei wenigen bis $\sim$20\,cm und
+verfeinert sich mit jeder weiteren Messung (frühe Reaktion, vgl.\ 26.1.8).
+\end{infobox}
+
+\begin{infobox}[title={Checkliste 23.5/24.6 -- in Schritt 4 beachtet}]
+Mess-Frame korrekt behandelt (TF optical$\rightarrow$\code{world});
+\code{use\_sim\_time} + \code{/clock}; Pose-/Punktfelder mit \code{float(\ldots)}
+gecastet; \emph{kein} Custom-Interface (\code{PointStamped}, \code{nav\_msgs/Path},
+\code{Marker}); Methoden neutral benannt (\code{ekf\_step}, nicht \code{handle}).
+Zur Konsistenz nutzt auch \code{opponent\_serve} jetzt Luftwiderstand (gleiche
+$k$), und die Schlagparameter sind so gewählt, dass der Ball \emph{über} das Netz
+kommt.
+\end{infobox}
+
+\paragraph{Terminals und Befehle.}
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- alles starten (jetzt mit flight\_ekf)}]
+cd ~/ros2_ws
+colcon build --packages-select p2_tabletennis
+source install/setup.bash
+ros2 launch p2_tabletennis tabletennis.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Schaetzung und Abfangpunkt mitlesen}]
+source ~/ros2_ws/install/setup.bash
+ros2 topic echo /ball/estimate     # EKF-Schaetzung (im world-Frame)
+ros2 topic echo /ball/intercept    # vorhergesagter Abfangpunkt
+\end{lstlisting}
+\noindent In RViz zeigt der gelbe Zylinder den vorhergesagten Abfangpunkt, die
+blaue Linie die prädizierte (gebouncte) Bahn. Geht der Schlag ins Netz oder ins
+Aus, verschwindet der Abfang-Marker (ungültig).
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 4 (\# neu / \# angepasst)}]
+src/p2_tabletennis/
+|- p2_tabletennis/flight_ekf.py      # neu (EKF + Luftwiderstand + Auftreffpunkt)
+|- p2_tabletennis/opponent_serve.py  # angepasst: Luftwiderstand + Schlag ueber Netz
+|- launch/tabletennis.launch.py      # angepasst: flight_ekf statt 0.B-ball_tracker
+|- config/tabletennis.rviz           # angepasst: Marker /ball/intercept_marker
+`- setup.py / package.xml            # angepasst: flight_ekf, tf2_*-Abhaengigkeiten
+\end{lstlisting}
+
+\subsection{Schritt 5 -- Aufschlagregeln, Fehlschuss und Begrenzungswand}
+Schritt~5 setzt die Tischtennis-Regeln aus 26.2.1.5 um und macht das Ergebnis
+\emph{sichtbar}. Ein neuer Knoten \code{match\_referee} (Schiedsrichter) erkennt
+die Aufpraller des Balls, prüft sie gegen die Aufschlag- bzw.\ Ballwechselregeln
+und steuert die Visualisierung. Zusätzlich erhält \code{opponent\_serve} einen
+echten \textbf{Aufschlag}-Modus -- denn die bisherigen Würfe waren Ballwechsel,
+keine Aufschläge.
+
+\paragraph{Regelkonformer Aufschlag im Gegnerknoten.} Der Roboter schlägt nie
+selbst auf; der Aufschlag kommt immer vom Spieler. \code{opponent\_serve} kennt
+daher zwei Modi (Services \code{/opponent/serve} und \code{/opponent/rally}) und
+meldet jeden Schlag auf \code{/opponent/event}, womit der Schiedsrichter seine
+Zustandsmaschine zurücksetzt. Die Aufschlagparameter sind so gewählt (offline
+geprüft), dass der Ball zuerst auf der eigenen Seite ($y\approx+0{,}5$), dann über
+das Netz ($z\approx0{,}97>0{,}9125$) auf die Roboterseite ($y\approx-0{,}5$) springt.
+\begin{lstlisting}[style=py,caption={\code{opponent\_serve} -- Modus wählen und Schiedsrichter informieren}]
+def _launch(self, mode):
+    if mode == 'serve':   # 1. Aufprall eigene Seite, dann ueber Netz
+        s, speed, az, el = self.serve_start, 3.0, -1.5708, 0.0873
+    else:                 # Ballwechsel: direkt ueber Netz auf Roboterseite
+        s, speed, az, el = self.start, 4.5, -1.5708, 0.10
+    self.pos = [float(s[0]), float(s[1]), float(s[2])]
+    self.vel = [speed*cos(el)*cos(az), speed*cos(el)*sin(az), speed*sin(el)]
+    self.event_pub.publish(String(data=mode))   # Schiedsrichter zuruecksetzen
+\end{lstlisting}
+
+\paragraph{Aufprall-Erkennung aus den Messungen.} Der Schiedsrichter darf
+\emph{nicht} die EKF-Schätzung verwenden -- die ist ab der Tischmitte eingefroren
+(Schritt~4) und sähe den Aufprall auf der Roboterseite gar nicht. Stattdessen
+transformiert er die Messungen \code{/ball/point} per TF nach \code{world} und
+erkennt einen Aufprall als \emph{lokales $z$-Minimum} nahe der Tischhöhe (Vorzeichen
+von $v_z$ kippt von $-$ nach $+$), innerhalb der Platte:
+\begin{lstlisting}[style=py,caption={\code{match\_referee} -- Aufprall = $z$-Minimum auf Tischhöhe}]
+def _check_bounce(self):
+    (p0,t0),(p1,t1),(p2,t2) = self.buf          # letzte drei Messungen
+    vz_old = (p1[2]-p0[2])/(t1-t0); vz_new = (p2[2]-p1[2])/(t2-t1)
+    if not (vz_old < -0.2 and vz_new > 0.2):     return  # kein Umkehrpunkt
+    if p1[2] > self.tz + 0.10:                   return  # nicht auf Tischhoehe
+    if abs(p1[0]) > self.hw or abs(p1[1]) > self.hl:  return  # ausserhalb Platte
+    if t1 - self.last_bounce_t < 0.15:           return  # Entprellung
+    self.last_bounce_t = t1
+    self._on_bounce('player' if p1[1] > 0 else 'robot')
+\end{lstlisting}
+
+\paragraph{Regel-Zustandsmaschine.} Aus der Reihenfolge der Aufprall-Seiten ergibt
+sich der Verdikt. Ein Netztreffer (Bahn schneidet $y=0$ unter $0{,}9125\,$m) wird
+zusätzlich beim Überqueren der Netzebene erkannt.
+\begin{lstlisting}[style=py,caption={\code{match\_referee} -- Aufschlag-/Ballwechselregeln}]
+def _on_bounce(self, side):
+    self.bounces.append(side); n = len(self.bounces)
+    if self.phase == 'SERVE':
+        if n == 1 and side == 'robot':  self._fault('nicht auf Aufschlagseite')
+        elif n == 2 and side == 'robot': self._valid_serve()  # -> Phase RALLY
+        elif n == 2:                    self._fault('2x eigene Seite')
+    else:  # RALLY
+        if n == 1 and side == 'robot':  self._status('gueltiger Aufprall')
+        elif n == 1:                    self._fault('falsche Seite')
+        else:                           self._fault('Doppelaufprall')
+\end{lstlisting}
+
+\paragraph{Begrenzungswand und Auftreffpunkt in Gazebo.} Die Wand ist als
+\emph{durchsichtiges, kollisionsfreies} Box-Visual am Plattenrand ($y=-1{,}30$,
+der Abfangebene) in die Welt eingebaut -- der Ball fliegt hindurch. Da Gazebo zur
+Laufzeit kein bequemes Umfärben über ROS erlaubt, nutzt der Schiedsrichter einen
+Trick \emph{ohne} Materialeingriff: Es gibt \emph{zwei} Wände -- eine grüne
+(\code{wall\_ok}) und eine rote (\code{wall\_fault}, sonst unter dem Boden
+geparkt). Bei einem Fehlschuss werden sie über dieselbe \code{set\_pose}-Brücke
+wie der Ball (Schritt~3) getauscht; ein neuer Ballwechsel tauscht zurück. Der vom
+EKF geschätzte Auftreffpunkt (\code{/ball/intercept}) wird als flache Scheibe live
+auf die Wand gesetzt.
+\begin{lstlisting}[style=py,caption={\code{match\_referee} -- Wand umfärben \& Auftreffpunkt setzen (set\_pose)}]
+def _set_wall(self, fault):                      # Tausch statt Umfaerben
+    self._move('wall_ok',    0, self.wall_y, self.park_z if fault else self.wall_z)
+    self._move('wall_fault', 0, self.wall_y, self.wall_z if fault else self.park_z)
+
+def on_intercept(self, msg):                     # EKF-Schaetzung auf die Wand
+    if self.fault: return
+    self._move('impact_marker', msg.point.x, self.wall_y, msg.point.z,
+               qx=0.7071, qw=0.7071)             # roll 90: Scheibe liegt flach
+\end{lstlisting}
+
+\begin{warnbox}[title={Schiedsrichter liest Messungen, nicht die EKF-Schätzung}]
+Die Aufprall-Erkennung läuft auf \code{/ball/point} (per TF nach \code{world}),
+\emph{nicht} auf \code{/ball/estimate}. Grund: Der EKF friert seine Schätzung an
+der Tischmitte ein (Schritt~4) und liefert für die Roboterseite -- wo der
+entscheidende zweite Aufprall liegt -- gar keine Updates mehr. Die rohe Messung
+sieht die ganze Bahn.
+\end{warnbox}
+
+\begin{infobox}[title={Checkliste 23.5/24.6 -- in Schritt 5 beachtet}]
+Mess-Frame korrekt (TF optical$\rightarrow$\code{world}); \code{use\_sim\_time} +
+\code{/clock} an allen Knoten; \code{set\_pose} wird erst nach
+\code{service\_is\_ready()} aufgerufen (kein Blockieren); Pose-Felder mit
+\code{float(\ldots)} gecastet; \emph{keine} Custom-Interfaces (\code{PointStamped},
+\code{std\_msgs/String}, \code{ros\_gz\_interfaces/SetEntityPose}); Knoten und
+Methoden neutral benannt (\code{match\_referee}, \code{process\_world\_point}).
+Die Wand ist \emph{ohne Kollision} modelliert -- sonst würde der Ball an ihr
+abprallen statt hindurchzufliegen.
+\end{infobox}
+
+\paragraph{Terminals und Befehle.}
+\begin{lstlisting}[style=bash,caption={Terminal 1 -- alles starten (jetzt mit Schiedsrichter + Wand)}]
+cd ~/ros2_ws
+colcon build --packages-select p2_tabletennis
+source install/setup.bash
+ros2 launch p2_tabletennis tabletennis.launch.py
+\end{lstlisting}
+\begin{lstlisting}[style=bash,caption={Terminal 2 -- Aufschlag/Ballwechsel auslösen, Verdikt mitlesen}]
+source ~/ros2_ws/install/setup.bash
+ros2 service call /opponent/serve std_srvs/srv/Trigger   # regelkonformer Aufschlag
+ros2 service call /opponent/rally std_srvs/srv/Trigger   # Ballwechsel-Schlag
+ros2 topic echo /match/status                            # bereit / gueltig / FEHLSCHUSS
+\end{lstlisting}
+\noindent In Gazebo zeigt die Scheibe auf der durchsichtigen Wand den
+EKF-Auftreffpunkt; der reale Ball durchbricht die Wand daneben -- die Differenz ist
+die Modellgüte. Bei einem ungültigen Aufschlag (z.\,B.\ \code{/opponent/serve} mit
+einem Ballwechsel-artigen Wurf, oder ein Ball ins Netz) färbt sich die Wand rot,
+beim nächsten Schlag wieder grün.
+\begin{lstlisting}[style=bash,caption={\code{ros2\_ws}-Delta nach Schritt 5 (\# neu / \# angepasst)}]
+src/p2_tabletennis/
+|- p2_tabletennis/match_referee.py   # neu (Regeln + Fehlschuss + Wand-Visualisierung)
+|- p2_tabletennis/opponent_serve.py  # angepasst: Aufschlag-/Ballwechsel-Modus + /opponent/event
+|- worlds/tabletennis.sdf            # angepasst: wall_ok/wall_fault + impact_marker (visual-only)
+|- launch/tabletennis.launch.py      # angepasst: match_referee gestartet
+`- setup.py / package.xml            # angepasst: match_referee, std_msgs
+\end{lstlisting}
+
+\noindent Offline verifiziert (Regel-Logik mit synthetischen Bahnen, gleiches
+Drag-Modell): gültiger Aufschlag (player$\rightarrow$robot) $\rightarrow$ Wechsel
+auf Ballwechsel; erster Aufprall Roboterseite $\rightarrow$ Fehlschuss; zweiter
+Aufprall erneut eigene Seite $\rightarrow$ Fehlschuss; Aufschlag ins Netz
+$\rightarrow$ Fehlschuss (Netztreffer); gültiger Ballwechsel (ein Aufprall
+Roboterseite) $\rightarrow$ kein Fehlschuss.
+
+\subsection{Schritt 6 -- Roboteranbindung}
+\emph{[Dokumentation folgt.]} Frühe Abfangbewegung (iterative Verfeinerung),
+inverse Kinematik des Portals und Motorsteuerung über den
+\code{ros2\_control}-Stack.
