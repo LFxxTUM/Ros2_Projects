@@ -1525,3 +1525,374 @@ src/p2_tabletennis/
 PID-Achsregelung des Portals, Schlägerorientierung (Vor-/Rückhand), inverse
 Kinematik und auf $t^\ast$ getaktete Schlagbewegung über den
 \code{ros2\_control}-Stack.
+
+% =====================================================================
+% Abschnitt 26.4 -- Mechanische Konstruktion des Tischtennisroboter-Portals
+% (folgt auf 26.3.8 Schritt 7). Abbildungen unter figures/project_2/.
+% =====================================================================
+\section{Mechanische Konstruktion: Portal, Antrieb und Achsen}
+\label{sec:ttr-mechanik}
+
+Die bisherigen Schritte (26.3.1--26.3.8) behandeln Wahrnehmung, Flugsch\"atzung
+und die softwareseitige Roboteranbindung. Dieser Abschnitt h\"alt die
+mechanische Detailkonstruktion des Portals fest -- die Entscheidungen, die
+Zahlen dahinter und vor allem die Probleme, auf die wir gesto\ss en sind, sowie
+die gew\"ahlten Umgehungen. Er ist bewusst als Konstruktionstagebuch
+geschrieben: Vieles ist ein Kompromiss zwischen Steifigkeit, bewegter Masse,
+Montierbarkeit, Druckbarkeit und Budget, und einige Punkte lassen sich erst im
+Prototyp endg\"ultig kl\"aren.
+
+% --------------------------------------------------------------------
+\subsection{Konstruktionsentscheidungen im \"Uberblick}
+\label{sec:ttr-overview}
+
+Das Grundkonzept (Abschnitt 26.1.4) bleibt: ein kartesisches Portal positioniert
+grob vor, der serielle Schlagarm f\"uhrt den schnellen Schlag aus. Neu ist die
+mechanische Ausgestaltung der Achsen:
+
+\begin{itemize}
+  \item \textbf{X-Achse als vertikal gestapeltes Schienenpaar.} Statt zweier
+        nebeneinanderliegender Schienen werden die beiden X-Schienen
+        \emph{\"ubereinander} angeordnet. Der vertikale Achsabstand entspricht
+        dem Z-Hub. Dadurch wird das Kippmoment des nach vorn ausladenden Arms in
+        ein Kraftpaar \"uber eine vertikale Basis umgesetzt -- deutlich steifer
+        (Abschnitt~\ref{sec:ttr-achsen}).
+  \item \textbf{Master/Slave statt zweier gleicher F\"uhrungen.} Zwei lange,
+        starr verbundene Profilschienen w\"aren statisch \"uberbestimmt. Eine
+        steife Master- und eine nachgiebige Slave-Schiene l\"osen das
+        (Abschnitt~\ref{sec:ttr-achsen}).
+  \item \textbf{Direktantrieb ohne Untersetzung.} Engpass ist die
+        Geschwindigkeit, nicht das Moment (Abschnitt~\ref{sec:ttr-motor}).
+  \item \textbf{Zahnriemen, achsspezifisch dimensioniert.} GT3 in 15\,mm f\"ur
+        X, GT2 in 6\,mm f\"ur Z (Abschnitt~\ref{sec:ttr-riemen}).
+  \item \textbf{Gewichtskompensation kritisch hinterfragt.} Die bewegte
+        Z-Masse ist so gering, dass eine billige Gasfeder \"uberdimensioniert
+        w\"are (Abschnitt~\ref{sec:ttr-gasfeder}).
+\end{itemize}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.82\linewidth]{project_2/fig_portal_uebersicht}
+  \caption{Frontblick auf das Portalkonzept: Der X-Schlitten greift die beiden
+  vertikal gestapelten X-Schienen (Slave oben, Master unten); zwischen ihnen
+  h\"angt die Z-Achse mit dem nach vorn ausladenden Schlagarm (Hebelarm $L$).}
+  \label{fig:ttr-portal}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Linearachsen: gestapelte Master/Slave-Architektur}
+\label{sec:ttr-achsen}
+
+\textbf{Warum stapeln?} Der Schlagarm ragt mit Hebelarm $L$ nach vorn; beim
+Beschleunigen entsteht ein Nick-(Kipp-)Moment $M = m\,a\,L$
+(vgl.\ Gl.~(26.1)). Liegen die beiden X-Schienen vertikal \"ubereinander, st\"utzt
+sich dieses Moment als Zug/Druck-Kraftpaar \"uber den vertikalen Abstand der
+Schienen ab. Je gr\"o\ss er dieser Abstand, desto kleiner die Lagerkr\"afte --
+und der Abstand ist hier \glqq gratis\grqq, weil er ohnehin dem Z-Hub
+entspricht.
+
+\textbf{Das Problem dabei -- und die L\"osung.} Zwei \"uber 1,8\,m lange,
+parallel gef\"uhrte Schienen, von einer starren Platte gegriffen, sind statisch
+\emph{\"uberbestimmt}: Kleinste Unparallelit\"aten verspannen die F\"uhrung. Die
+Umgehung ist eine Master/Slave-Auslegung
+(Abbildung~\ref{fig:ttr-masterslave}):
+
+\begin{itemize}
+  \item \textbf{Master (unten):} eine Profilschiene vom Typ BLH20 / HGR20
+        (HGH20-kompatibel) mit Wagen \texttt{HGH20CA} und leichter Vorspannung
+        (Z0). Steif und spielarm -- sie f\"uhrt die Genauigkeit.
+  \item \textbf{Slave (oben):} eine gest\"utzte Rundschiene SBR20 mit offenen
+        Buchsen \texttt{SBR20UU}. Ihr radiales Lagerspiel liefert genau die
+        Nachgiebigkeit, um Unparallelit\"at \"uber die L\"ange aufzunehmen.
+\end{itemize}
+
+Das ist zugleich die budgetfreundliche Kombination: eine pr\"azise Profilschiene
+plus eine g\"unstige gest\"utzte Rundschiene.
+
+\textbf{Z-Achse.} Vertikal arbeiten zwei \emph{gespreizte} MGN12-Profilschienen
+mit je \emph{einem} langen Wagen \texttt{MGN12H}. Da der Z-Hub kurz ist, lassen
+sich die Wagen vertikal nicht spreizen -- daher der lange H-Wagen f\"ur mehr
+Momentkapazit\"at. Zwei Schienen mit je einem Wagen sind der \glqq Sweet
+Spot\grqq: leichter als zwei Wagen je Schiene, aber verdrehsteif (eine einzelne
+Schiene w\"urde tordieren). MGN15 erst, falls der Arm schwer wird; MGN9 ist zu
+schwach.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.74\linewidth]{project_2/fig_master_slave}
+  \caption{Querschnitt der gestapelten X-Achse. Der starre Master-Block (unten)
+  f\"uhrt, die nachgiebige Slave-Buchse (oben) gleicht Unparallelit\"at aus. Das
+  Auslegermoment wird zum Kraftpaar (Zug/Druck) \"uber die vertikale Basis
+  (\,=\,Z-Hub).}
+  \label{fig:ttr-masterslave}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Lageranordnung und Steifigkeit}
+\label{sec:ttr-lager}
+
+Pro Schiene sitzen \emph{zwei} Wagen, entlang X maximal gespreizt
+(Abbildung~\ref{fig:ttr-lager}). Der gro\ss e Buchsenabstand nimmt Nick- und
+Giermoment auf -- hier gilt: \emph{Abstand schl\"agt Anzahl}. Vier Wagen
+(2~Master + 2~Slave) tragen zusammen das statische Restmoment; ausgelegt wird
+aber auf die dynamischen Spitzen aus dem Schlagimpuls.
+
+Wichtige Bohrbilder f\"ur die Plattenauslegung:
+\texttt{HGH20CA} 4$\times$M5, Raster 32$\times$36\,mm, Block 30\,mm hoch;
+\texttt{SBR20UU} 4$\times$M5 (manche Klone M6), Raster 35$\times$35\,mm, Block
+39\,mm hoch; \texttt{MGN12H} 4$\times$M3, Raster 20$\times$20\,mm. Die
+Bauh\"ohendifferenz Master/Slave (30 vs.\ 39\,mm) muss die Platte \"uber eine
+Stufe oder Distanzscheiben ausgleichen, damit der Achsabstand stimmt und die
+Platte rechtwinklig sitzt.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.74\linewidth]{project_2/fig_x_lager_topview}
+  \caption{Draufsicht auf die Lageranordnung: zwei Wagen je Schiene, entlang X
+  maximal gespreizt. Der gro\ss e Buchsenabstand nimmt Nick- und Giermoment auf.}
+  \label{fig:ttr-lager}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Motorauslegung}
+\label{sec:ttr-motor}
+
+\textbf{X-Achse: zwei Motoren, direkt, ohne Untersetzung.} Jede der beiden
+gestapelten Schienenebenen wird in ihrer Ebene angetrieben; die beiden Motoren
+laufen elektronisch synchron (Dual-Gantry-Logik). Eine Untersetzung
+verdoppelt zwar die Kraft, halbiert aber die Geschwindigkeit -- und die ist der
+Engpass (Abbildung~\ref{fig:ttr-direkt}). Mit einer gro\ss en 40T-Scheibe
+liefert der Direktantrieb bei $\sim$1000\,min$^{-1}$ rund 2\,m/s; eine
+2:1-Untersetzung w\"urde das auf $\sim$1\,m/s halbieren. Mehr
+Beschleunigungskraft holt man aus dem Motor oder einer kleineren Scheibe, nicht
+aus der Untersetzung.
+
+Gew\"ahlt: 2$\times$ \textbf{Closed-Loop-NEMA-23} ($\sim$2--3\,Nm) an einem
+48-V-Treiber (hohe Spannung $\Rightarrow$ hohe Drehzahl). Der Encoder
+verhindert Schrittverlust; Endschalter dienen Referenzfahrt und Crash-Grenzen
+(nicht der Schrittkontrolle).
+
+\textbf{Z-Achse: NEMA 17 bleibt.} Eine NEMA 23 w\"are 2--3$\times$ schwerer und
+erh\"ohte die in X bewegte Masse -- genau das, was die Dynamik bremst. Mit (oder
+sogar ohne) Gewichtskompensation braucht Z nur wenig Moment. Der Z-Motor sitzt
+auf dem X-Schlitten und f\"ahrt in Z \emph{nicht} mit
+(Abschnitt~\ref{sec:ttr-bewertung}). Scheibenbohrung an die Welle anpassen:
+NEMA 17 = 5\,mm, NEMA 23 = 8\,mm bzw.\ 6{,}35\,mm.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.80\linewidth]{project_2/fig_direkt_vs_untersetzung}
+  \caption{Direktantrieb statt Untersetzung: Die Geschwindigkeit ist der
+  Engpass. Eine Untersetzung vervielfacht das Moment, halbiert aber die
+  Endgeschwindigkeit.}
+  \label{fig:ttr-direkt}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Riemenauslegung}
+\label{sec:ttr-riemen}
+
+\textbf{Profil und Breite.} X tr\"agt die hohen Beschleunigungskr\"afte und den
+Schlagimpuls \"uber 1,8\,m -- daher \textbf{GT3 in 15\,mm} (gr\"o\ss ere Teilung,
+3M oder 5M): Zahnscher-Reserve gegen \"Uberspringen und weniger Riemendehnung
+\"uber die L\"ange. Z ist gering belastet -- \textbf{GT2 in 6\,mm} gen\"ugt und
+spart bewegte Masse. Scheibe \emph{und} Spannrolle m\"ussen die gleiche Breite
+wie der Riemen haben.
+
+\textbf{Klemmung in der Symmetrieebene.} Die Riemenklemmung liegt oben in der
+vertikalen Symmetrieebene der Schiene (Methode~2,
+Abbildung~\ref{fig:ttr-riemen}), nicht seitlich (Methode~1). So wirkt die
+Antriebskraft in der Ebene, erzeugt kein Giermoment und belastet die Lager
+gleichm\"a\ss ig; das kleine verbleibende Nickmoment fangen die gespreizten
+Wagen ab. Jeder der beiden X-Riemen wird in der Ebene seiner eigenen Schiene
+geklemmt.
+
+\textbf{Spannrolle glatt.} Der Spanner dr\"uckt von au\ss en auf den
+\emph{R\"ucken} des Riemens -- daher eine \emph{glatte}, mit Bordscheiben
+versehene Umlenkrolle (z.\,B.\ ein Flanschlager \texttt{F623ZZ}/\texttt{F625ZZ}).
+Verzahnt ist nur die Antriebsscheibe; \"uberall, wo nur umgelenkt oder gespannt
+wird, ist glatt die bessere Wahl. Bei der Bauteilsuche f\"uhrt
+\glqq idler pulley 15mm flanged\grqq{} weiter als der Profilname.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.80\linewidth]{project_2/fig_riemen_methoden}
+  \caption{Riemenklemmung: seitlich (Methode~1) erzeugt ein Giermoment und
+  belastet unsymmetrisch; in der Symmetrieebene (Methode~2, gew\"ahlt) wirkt die
+  Kraft in der Ebene ohne Verdrehen.}
+  \label{fig:ttr-riemen}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Gasfederauslegung}
+\label{sec:ttr-gasfeder}
+
+Die Gasfeder kompensiert nur die \emph{in Z mitfahrende} Gewichtskraft, damit
+der Z-Motor symmetrisch nur noch beschleunigt (und bei Stromausfall die Achse
+nicht f\"allt). Eine Absch\"atzung der bewegten Z-Masse:
+
+\begin{center}
+\begin{tabular}{lr}
+Schl\"ager (Standard, mit Belag) & $\approx$ 0{,}18\,kg \\
+3D-Druckteile (Z-Schlitten + Armstruktur) & $\approx$ 0{,}8\,kg \\
+Gasfeder (mitfahrender Anteil) & $\approx$ 0{,}2\,kg \\
+Kleinteile (Aufnahme, Schrauben, Lager, Kabel) & $\approx$ 0{,}2\,kg \\
+NEMA 17 \emph{(nur falls er in Z mitf\"ahrt)} & $\approx$ 0{,}35\,kg \\ \hline
+Summe & $\approx$ 1{,}4--1{,}7\,kg \\
+\end{tabular}
+\end{center}
+
+Daraus folgt $F = m\,g \approx 13\text{--}20\,\mathrm{N}$
+(Abbildung~\ref{fig:ttr-gasfeder}). F\"ahrt der Z-Motor wie vorgesehen
+\emph{nicht} in Z mit, liegt der Wert eher bei $\sim$13\,N.
+
+\textbf{Das ist der Haken.} 13--20\,N sind sehr wenig: G\"unstige
+AliExpress-Gasfedern beginnen meist erst bei $\sim$50\,N und w\"urden den
+Z-Schlitten nach oben dr\"ucken (\"uberbalanciert). Drei Wege:
+\begin{enumerate}
+  \item \textbf{Gasfeder weglassen.} Bei $\sim$1,7\,kg h\"alt der Z-Motor das
+        Haltemoment ($\sim$0{,}1\,Nm an einer GT2-20T-Scheibe) nebenbei;
+        einziger Verlust ist der Fail-Safe.
+  \item \textbf{Zug-/Konstantkraftfeder} im niedrigen Bereich, \"uber
+        Vorspannung fein einstellbar.
+  \item \textbf{Mini-Gasfeder} ($\sim$20--50\,N), leichte \"Uberbalancierung
+        toleriert der Motor.
+\end{enumerate}
+Empfehlung: zun\"achst ohne Gasfeder weiterkonstruieren und am realen Endgewicht
+entscheiden. Wird der Arm $>3$--4\,kg ($>30$--40\,N), lohnt die Gasfeder klar.
+
+\textbf{Falls Gasfeder:} Sie dr\"uckt zum Ausfahren. Um den Z-Schlitten nach
+oben zu dr\"ucken, wird das Stangenende unten am X-Teil fest verankert und der
+Zylinderk\"orper auf den mitfahrenden Z-Schlitten gesetzt (K\"orper oben =
+g\"unstig f\"ur die Dichtung). Kugelpfannen-Enden auf 10-mm-Kugelbolzen
+(selbstausrichtend, keine Querlast), Achse parallel zu Z, Hub $\ge$ Z-Hub. CAD
+ist trivial (Zylinder + Stange + zwei Kugelpfannen aus dem Datenblatt).
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.80\linewidth]{project_2/fig_gasfeder_bilanz}
+  \caption{Kraftbilanz der Z-Achse. Ohne Gasfeder tr\"agt und beschleunigt der
+  Motor; mit Gasfeder ist die Gewichtskraft kompensiert. Achtung: bei nur
+  $\sim$15\,N sind billige Gasfedern ($\ge$50\,N) \"uberdimensioniert.}
+  \label{fig:ttr-gasfeder}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{CAD-Entscheidungen}
+\label{sec:ttr-cad}
+
+\textbf{Geteilte X-Schlittenplatte mit Stufenfalz.} Die Platte ist f\"ur den
+Druck zweigeteilt und in der Mitte gef\"ugt. Statt eines Stumpfsto\ss es
+(\"offnet unter Biegung) kommt ein \textbf{Stufenfalz (halbe \"Uberlappung)} mit
+zwei eingepressten Stahl-Passstiften ($\varnothing$4--5\,mm) und Schrauben zum
+Einsatz (Abbildung~\ref{fig:ttr-stufenfalz}). Die Passstifte lokalisieren, tragen
+die Querkraft und verhindern Verdrehen -- so bleiben die beiden MGN-Schienen
+koplanar; die Schrauben klemmen; die \"Uberlappung verhindert das Aufgehen der
+Fuge. Druckorientierung so w\"ahlen, dass die Fuge auf \emph{Schub} statt auf
+Schichttrennung belastet wird. Gewinde \"uber eingepresste Messing-Eins\"atze
+(Heat-Set, M3), nicht gedruckt.
+
+\textbf{Weiteres.} Wagen-Bohrbilder und Bauh\"ohenausgleich siehe
+Abschnitt~\ref{sec:ttr-lager}. F\"ur die CAD-Modelle der Profilschiene die
+HIWIN-STEP von HGR20\,+\,HGH20CA verwenden (nicht MGN -- andere Baureihe).
+Riemenscheiben f\"ur das Layout vereinfacht als Zylinder auf dem
+Teilkreisdurchmesser $d = z\cdot p/\pi$ modellieren; zahn-genaue Modelle bei
+Bedarf parametrisch von SDP-SI, Misumi, M\"adler oder TraceParts.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.80\linewidth]{project_2/fig_stufenfalz}
+  \caption{Geteilte Platte: Der Stumpfsto\ss{} (links) \"offnet unter Biegung;
+  Stufenfalz mit Passstiften (rechts) tr\"agt Schub und h\"alt die F\"ugung in
+  Lage.}
+  \label{fig:ttr-stufenfalz}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Bewertung der aktuellen Motor- und Riemenanbindung}
+\label{sec:ttr-bewertung}
+
+Der aktuelle CAD-Stand setzt den \textbf{NEMA 17 auf die XZ-Ebene der Schienen},
+mittig und mit kurzem Hebel zur Schienenebene; der GT2-Riemen l\"auft in dieser
+Ebene nach unten zum Z-Schlitten, eine glatte Spannrolle h\"alt die Spannung
+(Abbildung~\ref{fig:ttr-bewertung}). Diese Anbindung ist gut: Der kurze Hebel
+h\"alt das zus\"atzliche Nickmoment klein, die Antriebskraft reagiert zur Platte
+hin, und die Belastung bleibt gleichm\"a\ss ig.
+
+\textbf{Der ehrliche Kompromiss -- Masseausgleich.} Verlockend w\"are, den Motor
+\emph{weit hinter} die Schienen zu setzen und so als Ausgleichsmasse den
+Gesamtschwerpunkt des X-Schlittens n\"aher an die F\"uhrung zu r\"ucken.
+Konstruktiv und strukturell ist das jedoch schwierig: ein langer Ausleger nach
+hinten kostet Steifigkeit, verkompliziert Montage und Verkabelung und
+verbraucht mehr Druckmaterial. Bewusst wurde daher der \emph{kurze Hebel} der
+Massenverschiebung vorgezogen -- der Motor sitzt nah an der Schiene, statt als
+Gegengewicht zu dienen.
+
+\textbf{Masseausgleich und Dynamikverbesserung sind hier schwer vorab zu
+fixieren.} Schwerpunktlage, Restmoment und vor allem das Nachschwingen nach dem
+Schlag h\"angen von Details ab, die sich analytisch nur grob fassen lassen. Das
+statische Restmoment tragen die vier X-Wagen; ausgelegt wird auf die dynamische
+Spitze. Eine kostenlose Teil-Kompensation ergibt sich, indem ohnehin auf dem
+X-Schlitten sitzende Massen (Z-Motor, Gasfederk\"orper, Energiekette) auf die
+\emph{R\"uckseite} gelegt werden -- das verschiebt den Schwerpunkt, ohne
+zus\"atzliche bewegte Masse einzuf\"uhren. Ein \emph{dediziertes} Gegengewicht
+oder ein mitfahrender X-Motor scheidet aus: Zusatzmasse killt die
+X-Beschleunigung, und genau die ist die Priorit\"at.
+
+\textbf{N\"otige Prototypversuche.} Endg\"ultig entscheiden l\"asst sich das erst
+am gebauten System. Zu messen bzw.\ einzustellen sind insbesondere:
+\begin{itemize}
+  \item reale bewegte Masse und Schwerpunktlage (entscheidet \"uber die
+        Gasfeder, Abschnitt~\ref{sec:ttr-gasfeder});
+  \item Nachschwingen und Einschwingzeit nach einem Schlag (Eigenfrequenz,
+        Input-Shaping, vgl.\ Abschnitt~26.1.5);
+  \item Riemendehnung und Positioniergenauigkeit \"uber die volle X-L\"ange;
+  \item Synchronlauf der beiden X-Motoren unter Last.
+\end{itemize}
+
+\textbf{Priorit\"aten Montage und Druckbarkeit.} Zwei Leitlinien haben die
+Konstruktion mitbestimmt: \emph{einfacher Zusammenbau} (Klemmung in der
+Symmetrieebene mit zug\"anglichen Schrauben, Heat-Set-Eins\"atze, die
+Master/Slave-Auslegung verzeiht Fertigungs- und Montagefehler) und
+\emph{Druckbarkeit} (geteilte Platte mit lastgerecht orientiertem Stufenfalz,
+Schub statt Schichttrennung, gedruckte Teile bewusst leicht gehalten).
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.86\linewidth]{project_2/fig_motor_riemen_bewertung}
+  \caption{Bewertung der aktuellen Anbindung: Der NEMA 17 sitzt in der
+  XZ-Schienenebene mit kurzem Hebel; der Riemen l\"auft in der Ebene zum
+  Z-Schlitten, eine glatte Spannrolle spannt. Der Motor \emph{als}
+  Ausgleichsmasse weit hinter der Schiene w\"are konstruktiv schwierig -- bewusst
+  wurde der kurze Hebel gew\"ahlt und der Feinabgleich dem Prototyp \"uberlassen.}
+  \label{fig:ttr-bewertung}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Aufgetretene Probleme und gew\"ahlte Umgehungen}
+\label{sec:ttr-probleme}
+
+\begin{enumerate}
+  \item \textbf{Gestapelte Schienen statisch \"uberbestimmt} $\rightarrow$
+        Master/Slave: steifer HGH20-Master + nachgiebige SBR20-Slave.
+  \item \textbf{Profilschienen reagieren empfindlich auf Fluchtungsfehler}
+        $\rightarrow$ gerade Referenzfl\"ache + Slave-Float gleicht Rest aus.
+  \item \textbf{CAD-Verwechslung MGN $\leftrightarrow$ BLH20} (andere Baureihe,
+        andere Ma\ss e) $\rightarrow$ konsequent HGR20/HGH20-STEP nutzen.
+  \item \textbf{Riemenklemmung seitlich erzeugt Giermoment} $\rightarrow$
+        Klemmung in der Symmetrieebene (Methode~2).
+  \item \textbf{Gegengewicht reizvoll, killt aber die X-Dynamik} $\rightarrow$
+        kein dediziertes Gewicht; freier Schwerpunkt-Shift mit vorhandenen
+        Massen, Motor nah an der Schiene.
+  \item \textbf{Gasfederkraft zu niedrig ($\sim$15\,N) f\"ur billige Gasfedern}
+        ($\ge$50\,N) $\rightarrow$ weglassen oder Federalternative, Entscheidung
+        am Endgewicht.
+  \item \textbf{Stumpfsto\ss{} der geteilten Platte zu schwach} $\rightarrow$
+        Stufenfalz + Stahl-Passstifte + Heat-Set-Gewinde.
+  \item \textbf{Profil-/Teilungsverwirrung HTD vs.\ GT2/GT3} $\rightarrow$
+        GT3-15\,mm f\"ur X, GT2-6\,mm f\"ur Z; Teilung (3M/5M) explizit w\"ahlen.
+  \item \textbf{Bauh\"ohendifferenz HGH20CA vs.\ SBR20UU} (30 vs.\ 39\,mm)
+        $\rightarrow$ Stufe/Distanzscheiben in der Platte.
+  \item \textbf{Massenausgleich und Dynamik analytisch schwer fixierbar}
+        $\rightarrow$ konservativ auslegen, im Prototyp messen und abstimmen.
+\end{enumerate}
